@@ -1,18 +1,20 @@
 import { withAuth } from '@/lib/api/with-auth'
 import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
-import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { UpdateClientSchema } from '@valuation-os/utils'
 import { requireRole } from '@/lib/auth/guards'
+import { normalizeClientTags } from '@/lib/crm/client-records'
+import { assertRecordBranchAccess, resolveManagedClientBranchId } from '@/lib/auth/branch-scope'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
     const { id } = await ctx.params
 
     const client = await req.db.client.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: {
+        branch: { select: { id: true, name: true } },
         contacts: {
           select: { id: true, name: true, role: true, email: true, phone: true, isPrimary: true },
           orderBy: { isPrimary: 'desc' },
@@ -30,6 +32,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     })
 
     if (!client) throw Errors.NOT_FOUND('Client')
+    assertRecordBranchAccess(req.session, client.branchId, 'client')
     return ok(client)
   } catch (err) {
     return errorResponse(err)
@@ -41,19 +44,46 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     const { id } = await ctx.params
     const body = UpdateClientSchema.parse(await req.json())
 
-    const existing = await req.db.client.findUnique({ where: { id } })
+    const existing = await req.db.client.findUnique({ where: { id, deletedAt: null } })
     if (!existing) throw Errors.NOT_FOUND('Client')
+    assertRecordBranchAccess(req.session, existing.branchId, 'client')
 
     const data = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined))
+    const patchData: Record<string, unknown> = { ...data }
+    if ('branchId' in patchData) {
+      patchData.branchId = await resolveManagedClientBranchId(req.session, body.branchId ?? null)
+    }
+    if ('email' in patchData && typeof patchData.email === 'string') {
+      patchData.email = patchData.email.trim().toLowerCase()
+    }
+    if ('phone' in patchData && typeof patchData.phone === 'string') {
+      patchData.phone = patchData.phone.trim()
+    }
+    if ('address' in patchData && typeof patchData.address === 'string') {
+      patchData.address = patchData.address.trim()
+    }
+    if ('city' in patchData && typeof patchData.city === 'string') {
+      patchData.city = patchData.city.trim()
+    }
+    if ('state' in patchData && typeof patchData.state === 'string') {
+      patchData.state = patchData.state.trim()
+    }
+    if ('rcNumber' in patchData && typeof patchData.rcNumber === 'string') {
+      patchData.rcNumber = patchData.rcNumber.trim()
+    }
+    if ('tags' in patchData) {
+      patchData.tags = normalizeClientTags(body.tags)
+    }
+
     await req.db.client.updateMany({
-      where: { id },
-      data: data as Record<string, unknown>,
+      where: { id, deletedAt: null },
+      data: patchData,
     })
     const client = await req.db.client.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       select: {
-        id: true, type: true, name: true, email: true,
-        phone: true, updatedAt: true,
+        id: true, branchId: true, type: true, name: true, email: true,
+        phone: true, tags: true, updatedAt: true,
       },
     })
     if (!client) throw Errors.NOT_FOUND('Client')
@@ -69,15 +99,18 @@ export const DELETE = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     const { id } = await ctx.params as { id: string }
 
     const existing = await req.db.client.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { _count: { select: { cases: true } } },
     })
     if (!existing) throw Errors.NOT_FOUND('Client')
+    assertRecordBranchAccess(req.session, existing.branchId, 'client')
     if (existing._count.cases > 0) throw Errors.CONFLICT('Cannot delete a client with active cases')
 
-    await prisma.contact.deleteMany({ where: { clientId: id } })
-    await req.db.client.deleteMany({ where: { id } })
-    return ok({ message: 'Client deleted' })
+    await req.db.client.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    })
+    return ok({ message: 'Client archived' })
   } catch (err) {
     return errorResponse(err)
   }

@@ -10,9 +10,19 @@ export interface Contact {
   isPrimary: boolean
 }
 
+export interface ClientDuplicateMatch {
+  id: string
+  name: string
+  type: ClientType
+  email: string | null
+  phone: string | null
+  score: number
+}
+
 export interface Client {
   id: string
   firmId: string
+  branchId: string | null
   type: ClientType
   name: string
   email: string | null
@@ -21,15 +31,20 @@ export interface Client {
   city: string | null
   state: string | null
   rcNumber: string | null
+  tags: string[]
   contacts: Contact[]
   createdAt: string
   updatedAt: string
+  deletedAt: string | null
 }
 
 export interface ClientSummary {
   id: string
+  branchId?: string | null
+  branchName?: string | null
   name: string
   type: ClientType
   email: string | null
   phone: string | null
+  tags?: string[]
 }

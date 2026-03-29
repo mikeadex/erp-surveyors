@@ -23,9 +23,33 @@ const ADDRESS_FIELDS = [
   FIELD('State', 'state'),
 ]
 
-export function NewClientForm() {
+interface BranchOption {
+  id: string
+  name: string
+}
+
+interface NewClientFormProps {
+  branches: BranchOption[]
+  initialBranchId?: string | undefined
+  canSelectBranch?: boolean
+}
+
+export function NewClientForm({
+  branches,
+  initialBranchId,
+  canSelectBranch = false,
+}: NewClientFormProps) {
   const router = useRouter()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [tagsInput, setTagsInput] = useState('')
+  const [createdClientId, setCreatedClientId] = useState<string | null>(null)
+  const [duplicateWarnings, setDuplicateWarnings] = useState<Array<{
+    id: string
+    name: string
+    score: number
+    email: string | null
+    phone: string | null
+  }>>([])
 
   const {
     register,
@@ -35,7 +59,7 @@ export function NewClientForm() {
     formState: { errors, isSubmitting },
   } = useForm<CreateClientInput>({
     resolver: zodResolver(CreateClientSchema),
-    defaultValues: { type: 'individual', contacts: [] },
+    defaultValues: { type: 'individual', contacts: [], tags: [], branchId: initialBranchId },
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'contacts' })
@@ -43,14 +67,29 @@ export function NewClientForm() {
 
   async function onSubmit(data: CreateClientInput) {
     setErrorMsg(null)
+    setDuplicateWarnings([])
+    setCreatedClientId(null)
+    const payload: CreateClientInput = {
+      ...data,
+      tags: tagsInput
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    }
     const res = await fetch('/api/v1/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     })
     const json = await res.json()
     if (!res.ok) {
       setErrorMsg(json?.error?.message ?? 'Failed to create client')
+      return
+    }
+    const matches = json?.data?.duplicateMatches ?? []
+    if (matches.length > 0) {
+      setDuplicateWarnings(matches)
+      setCreatedClientId(json.data.id)
       return
     }
     router.push(`/clients/${json.data.id}`)
@@ -79,6 +118,35 @@ export function NewClientForm() {
             ))}
           </div>
         </div>
+
+        {branches.length > 0 && (
+          <div>
+            <label htmlFor="branchId" className="block text-xs font-medium text-gray-700 mb-1">
+              Branch <span className="text-red-500">*</span>
+            </label>
+            <select
+              {...register('branchId')}
+              id="branchId"
+              disabled={!canSelectBranch}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+            >
+              <option value="">Select branch…</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              {canSelectBranch
+                ? 'Assign this client to the branch that owns the relationship.'
+                : 'Your branch assignment is applied automatically.'}
+            </p>
+            {errors.branchId && (
+              <p className="mt-1 text-xs text-red-600">{errors.branchId.message}</p>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {BASIC_FIELDS.filter((f) => {
@@ -119,6 +187,25 @@ export function NewClientForm() {
               />
             </div>
           ))}
+        </div>
+
+        <div>
+          <label htmlFor="tags" className="block text-xs font-medium text-gray-700 mb-1">
+            Tags
+          </label>
+          <input
+            id="tags"
+            placeholder="bank, repeat-client, priority"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            value={tagsInput}
+            onChange={(event) => setTagsInput(event.target.value)}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Separate tags with commas. They are normalized to lowercase on save.
+          </p>
+          {errors.tags && (
+            <p className="mt-1 text-xs text-red-600">{errors.tags.message as string}</p>
+          )}
         </div>
       </section>
 
@@ -170,6 +257,39 @@ export function NewClientForm() {
 
       {errorMsg && (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errorMsg}</p>
+      )}
+
+      {duplicateWarnings.length > 0 && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h3 className="text-sm font-semibold text-amber-900">Possible duplicates detected</h3>
+          <p className="mt-1 text-sm text-amber-800">
+            The client was created, but these existing records look similar. Review them before
+            continuing.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm text-amber-900">
+            {duplicateWarnings.map((match) => (
+              <li key={match.id} className="rounded-lg bg-white/70 px-3 py-2">
+                <div className="font-medium">{match.name}</div>
+                <div className="text-xs text-amber-700">
+                  Match score {match.score}
+                  {match.email ? ` • ${match.email}` : ''}
+                  {match.phone ? ` • ${match.phone}` : ''}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {createdClientId && (
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => router.push(`/clients/${createdClientId}`)}
+                className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800"
+              >
+                Open Created Client
+              </button>
+            </div>
+          )}
+        </section>
       )}
 
       <div className="flex items-center justify-end gap-3">

@@ -6,12 +6,15 @@ import { Building2, User } from 'lucide-react'
 
 export interface ClientRow {
   id: string
+  branchId: string | null
+  branch?: { id: string; name: string } | null
   type: 'individual' | 'corporate'
   name: string
   email: string | null
   phone: string | null
   city: string | null
   state: string | null
+  tags?: string[]
   createdAt: string
   _count: { cases: number }
 }
@@ -59,6 +62,21 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                   <div>
                     <p className="text-sm font-medium text-gray-900">{c.name}</p>
                     <p className="text-xs text-gray-400 capitalize">{c.type}</p>
+                    {c.branch?.name && (
+                      <p className="text-xs text-gray-500">{c.branch.name}</p>
+                    )}
+                    {c.tags && c.tags.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {c.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </td>

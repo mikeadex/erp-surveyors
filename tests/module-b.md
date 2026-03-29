@@ -11,6 +11,7 @@
 curl -b cookies.txt -X POST http://localhost:3000/api/v1/clients \
   -H "Content-Type: application/json" \
   -d '{
+    "branchId": "<BRANCH_ID>",
     "type": "individual",
     "name": "Emeka Okafor",
     "email": "emeka@example.com",
@@ -27,6 +28,7 @@ curl -b cookies.txt -X POST http://localhost:3000/api/v1/clients \
 curl -b cookies.txt -X POST http://localhost:3000/api/v1/clients \
   -H "Content-Type: application/json" \
   -d '{
+    "branchId": "<BRANCH_ID>",
     "type": "corporate",
     "name": "Zenith Properties Ltd",
     "email": "info@zenith.com",
@@ -60,6 +62,20 @@ curl -b cookies.txt "http://localhost:3000/api/v1/clients?q=emeka"
 curl -b cookies.txt "http://localhost:3000/api/v1/clients?type=corporate"
 ```
 **Expected:** `200` — only corporate clients.
+
+## 5b. List Clients — filter by tag
+
+```bash
+curl -b cookies.txt "http://localhost:3000/api/v1/clients?tag=priority"
+```
+**Expected:** `200` — only clients tagged `priority`.
+
+## 5c. List Clients — filter by branch
+
+```bash
+curl -b cookies.txt "http://localhost:3000/api/v1/clients?branchId=<BRANCH_ID>"
+```
+**Expected:** `200` — only clients assigned to the selected branch.
 
 ---
 
@@ -182,7 +198,7 @@ curl -b cookies.txt "http://localhost:3000/api/v1/clients/<CLIENT_ID>/cases?page
 ```bash
 curl -b cookies.txt -X DELETE http://localhost:3000/api/v1/clients/<CLIENT_ID>
 ```
-**Expected:** `200` — client deleted.
+**Expected:** `200` — client archived and removed from active client lists.
 
 ## 18. Delete Client with cases (blocked)
 

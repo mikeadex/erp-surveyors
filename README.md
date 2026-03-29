@@ -86,11 +86,27 @@ Branches are internal operating units inside a firm. They are not separate tenan
 
 Branch/session policy is implemented in [apps/web/lib/auth/branch-scope.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/branch-scope.ts) and branch-aware JWT payloads are issued from [apps/web/lib/auth/session.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/session.ts).
 
+## Client Ownership
+
+Clients are now branch-aware inside a firm.
+
+- Every client still belongs to a `firmId`
+- Clients also carry a `branchId` to represent the branch that owns the relationship
+- Managing partners can create, view, and filter clients across branches
+- Branch-scoped staff can only access clients in their assigned branch
+- Case creation only offers clients that are visible to the current branch scope
+- If only one branch is visible during client creation, it is preselected automatically
+
+Client branch ownership is enforced in [apps/web/app/api/v1/clients/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/clients/route.ts), [apps/web/app/api/v1/clients/[id]/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/clients/[id]/route.ts), and the related client contact/case subroutes.
+
 ## Current Branch-Aware UX
 
 The following web screens now expose branch-aware behavior:
 
 - Team management in [apps/web/app/(dashboard)/team/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/team/page.tsx)
+- Client listing in [apps/web/app/(dashboard)/clients/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/page.tsx)
+- Client creation in [apps/web/app/(dashboard)/clients/new/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/new/page.tsx)
+- Client detail in [apps/web/app/(dashboard)/clients/[id]/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/[id]/page.tsx)
 - Case listing in [apps/web/app/(dashboard)/cases/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/page.tsx)
 - Case creation in [apps/web/app/(dashboard)/cases/new/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/new/page.tsx)
 - Dashboard summary in [apps/web/app/(dashboard)/dashboard/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/dashboard/page.tsx)
@@ -127,4 +143,5 @@ The mobile client stores and refreshes bearer tokens through [apps/mobile/lib/st
 ## Notes
 
 - The repo currently has strong tenant and branch enforcement in the main operational modules, but some deeper case/report/inspection subroutes still rely on explicit firm checks instead of the newer `withTenant + req.db` pattern.
-- Clients and properties remain tenant-level records. Cases and downstream operational records carry branch ownership today.
+- Clients are now branch-owned within a firm. Properties remain tenant-level for now, while cases and downstream operational records continue to carry branch ownership.
+- Legacy clients that could not be assigned safely during automatic backfill remain visible to managing partners until they are manually assigned to a branch.

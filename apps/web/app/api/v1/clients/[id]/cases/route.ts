@@ -3,14 +3,16 @@ import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { parsePagination } from '@/lib/api/pagination'
+import { assertRecordBranchAccess } from '@/lib/auth/branch-scope'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
     const { id } = await ctx.params as { id: string }
     const { skip, take, page, pageSize } = parsePagination(req)
 
-    const client = await req.db.client.findUnique({ where: { id } })
+    const client = await req.db.client.findUnique({ where: { id, deletedAt: null } })
     if (!client) throw Errors.NOT_FOUND('Client')
+    assertRecordBranchAccess(req.session, client.branchId, 'client')
 
     const [items, total] = await Promise.all([
       req.db.case.findMany({

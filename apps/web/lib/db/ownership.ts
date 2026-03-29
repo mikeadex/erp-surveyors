@@ -13,7 +13,7 @@ export async function assertBranchBelongsToFirm(branchId: string, firmId: string
 
 export async function assertClientBelongsToFirm(clientId: string, firmId: string) {
   const client = await prisma.client.findFirst({
-    where: { id: clientId, firmId },
+    where: { id: clientId, firmId, deletedAt: null },
     select: { id: true },
   })
 

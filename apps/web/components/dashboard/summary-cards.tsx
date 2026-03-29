@@ -20,8 +20,8 @@ export async function DashboardSummaryCards({ stageMap, firmId, branchId }: Summ
     prisma.case.count({ where: { firmId, ...(branchId ? { branchId } : {}), isOverdue: true } }),
     prisma.client.count({
       where: branchId
-        ? { firmId, cases: { some: { branchId } } }
-        : { firmId },
+        ? { firmId, deletedAt: null, branchId }
+        : { firmId, deletedAt: null },
     }),
   ])
 

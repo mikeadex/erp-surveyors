@@ -30,6 +30,35 @@ export async function resolveScopedBranchId(
   throw Errors.FORBIDDEN('Your account must be assigned to a branch to access branch-scoped records')
 }
 
+export function assertRecordBranchAccess(
+  session: AuthSession,
+  recordBranchId?: string | null,
+  entityLabel = 'record',
+) {
+  if (canAccessAllBranches(session.role)) return
+
+  if (!session.branchId) {
+    throw Errors.FORBIDDEN('Your account must be assigned to a branch to access branch-scoped records')
+  }
+
+  if (!recordBranchId || recordBranchId !== session.branchId) {
+    throw Errors.FORBIDDEN(`You can only access ${entityLabel}s in your assigned branch`)
+  }
+}
+
+export async function resolveManagedClientBranchId(
+  session: AuthSession,
+  requestedBranchId?: string | null,
+): Promise<string> {
+  const branchId = await resolveScopedBranchId(session, requestedBranchId)
+  if (!branchId) {
+    throw Errors.BAD_REQUEST('A branch assignment is required for clients')
+  }
+
+  await assertBranchBelongsToFirm(branchId, session.firmId)
+  return branchId
+}
+
 export function requiresAssignedBranch(role: UserRole): boolean {
   return role !== 'managing_partner'
 }

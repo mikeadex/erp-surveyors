@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { z } from 'zod'
 import { NextRequest } from 'next/server'
+import crypto from 'crypto'
 
 const ResetRequestSchema = z.object({
   email: z.string().email(),
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
     await prisma.verificationCode.upsert({
       where: { email: email.toLowerCase() },
       create: {
+        id: crypto.randomUUID(),
         email: email.toLowerCase(),
         code: token,
         expiresAt,

@@ -55,6 +55,7 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   users User[]
+  clients Client[]
   cases Case[]
 
   @@index([firmId])
@@ -108,6 +109,16 @@ model User {
   @@map("users")
 }
 
+model VerificationCode {
+  id        String   @id @db.Text
+  email     String   @unique @db.VarChar(200)
+  code      String   @db.VarChar(20)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("verification_codes")
+}
+
 // ─── CLIENTS ──────────────────────────────────────────────────
 
 enum ClientType {
@@ -133,6 +144,8 @@ model Client {
   id        String     @id @default(uuid())
   firmId    String
   firm      Firm       @relation(fields: [firmId], references: [id])
+  branchId  String?
+  branch    Branch?    @relation(fields: [branchId], references: [id])
   type      ClientType
   name      String     @db.VarChar(200)
   email     String?    @db.VarChar(200)
@@ -141,15 +154,19 @@ model Client {
   city      String?    @db.VarChar(100)
   state     String?    @db.VarChar(100)
   rcNumber  String?    @db.VarChar(50)
+  tags      String[]   @default([])
   createdById String
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
 
   contacts  Contact[]
   cases     Case[]
   invoices  Invoice[]
 
   @@index([firmId])
+  @@index([firmId, branchId])
+  @@index([firmId, deletedAt])
   @@map("clients")
 }
 

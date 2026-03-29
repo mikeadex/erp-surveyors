@@ -34,8 +34,8 @@ export const GET = withAuth(async (req: AuthedRequest) => {
       }),
       prisma.client.count({
         where: scopedBranchId
-          ? { firmId, cases: { some: { branchId: scopedBranchId } } }
-          : { firmId },
+          ? { firmId, deletedAt: null, branchId: scopedBranchId }
+          : { firmId, deletedAt: null },
       }),
       prisma.invoice.aggregate({
         where: {

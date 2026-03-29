@@ -8,6 +8,7 @@ import { formatDate } from '@valuation-os/utils'
 import { Building2, Mail, Phone, MapPin, User } from 'lucide-react'
 import Link from 'next/link'
 import type { CaseStage } from '@valuation-os/types'
+import { assertRecordBranchAccess } from '@/lib/auth/branch-scope'
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,8 +26,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       select: { id: true, firstName: true, lastName: true, role: true, email: true },
     }),
     prisma.client.findFirst({
-      where: { id, firmId: session.firmId },
+      where: { id, firmId: session.firmId, deletedAt: null },
       include: {
+        branch: { select: { id: true, name: true } },
         contacts: { orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }] },
         cases: {
           select: {
@@ -44,6 +46,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   if (!user) redirect('/login')
   if (!client) notFound()
+  try {
+    assertRecordBranchAccess(session, client.branchId, 'client')
+  } catch {
+    notFound()
+  }
 
   return (
     <>
@@ -69,6 +76,19 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 </div>
               </div>
 
+              {client.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {client.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-600"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <dl className="space-y-2 text-sm divide-y divide-gray-100">
                 {client.email && (
                   <div className="flex items-center gap-2 pt-2 first:pt-0">
@@ -90,6 +110,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                     <span className="text-gray-700">
                       {[client.address, client.city, client.state].filter(Boolean).join(', ')}
                     </span>
+                  </div>
+                )}
+                {client.branch?.name && (
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-gray-500">Branch</span>
+                    <span className="text-gray-700">{client.branch.name}</span>
                   </div>
                 )}
                 {client.rcNumber && (

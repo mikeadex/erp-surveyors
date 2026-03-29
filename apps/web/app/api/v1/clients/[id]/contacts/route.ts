@@ -3,25 +3,20 @@ import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
 import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
-import { z } from 'zod'
-
-const CreateContactSchema = z.object({
-  name: z.string().min(1).max(200),
-  role: z.string().max(100).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().max(30).optional(),
-  isPrimary: z.boolean().optional(),
-})
+import { CreateContactSchema } from '@valuation-os/utils'
+import { normalizeClientContacts } from '@/lib/crm/client-records'
+import { assertRecordBranchAccess } from '@/lib/auth/branch-scope'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
     const { id } = await ctx.params as { id: string }
 
-    const client = await req.db.client.findUnique({ where: { id } })
+    const client = await req.db.client.findUnique({ where: { id, deletedAt: null } })
     if (!client) throw Errors.NOT_FOUND('Client')
+    assertRecordBranchAccess(req.session, client.branchId, 'client')
 
     const contacts = await prisma.contact.findMany({
-      where: { clientId: id },
+      where: { clientId: id, client: { firmId: req.firmId, deletedAt: null } },
       orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
     })
 
@@ -34,14 +29,19 @@ export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
 export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
     const { id } = await ctx.params as { id: string }
-    const body = CreateContactSchema.parse(await req.json())
+    const body = normalizeClientContacts([CreateContactSchema.parse(await req.json())])[0]
 
-    const client = await req.db.client.findUnique({ where: { id } })
+    const client = await req.db.client.findUnique({ where: { id, deletedAt: null } })
     if (!client) throw Errors.NOT_FOUND('Client')
+    assertRecordBranchAccess(req.session, client.branchId, 'client')
 
-    if (body.isPrimary) {
+    const existingContacts = await prisma.contact.count({
+      where: { clientId: id, client: { firmId: req.firmId, deletedAt: null } },
+    })
+
+    if (body.isPrimary || existingContacts === 0) {
       await prisma.contact.updateMany({
-        where: { clientId: id, isPrimary: true },
+        where: { clientId: id, isPrimary: true, client: { firmId: req.firmId, deletedAt: null } },
         data: { isPrimary: false },
       })
     }
@@ -53,7 +53,7 @@ export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
         ...(body.role !== undefined ? { role: body.role } : {}),
         ...(body.email !== undefined ? { email: body.email } : {}),
         ...(body.phone !== undefined ? { phone: body.phone } : {}),
-        isPrimary: body.isPrimary ?? false,
+        isPrimary: body.isPrimary || existingContacts === 0,
       },
     })
 

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { z } from 'zod'
+import crypto from 'crypto'
 
 const SendCodeSchema = z.object({
   email: z.string().email(),
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
     await prisma.verificationCode.upsert({
       where: { email: normalizedEmail },
       create: {
+        id: crypto.randomUUID(),
         email: normalizedEmail,
         code,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins

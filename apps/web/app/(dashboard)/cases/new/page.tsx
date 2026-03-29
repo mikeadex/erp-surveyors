@@ -20,7 +20,11 @@ export default async function NewCasePage() {
       select: { id: true, firstName: true, lastName: true, role: true, email: true },
     }),
     prisma.client.findMany({
-      where: { firmId: session.firmId },
+      where: {
+        firmId: session.firmId,
+        deletedAt: null,
+        ...(session.branchId && !canAccessAllBranches(session.role) ? { branchId: session.branchId } : {}),
+      },
       select: { id: true, name: true, type: true },
       orderBy: { name: 'asc' },
     }),

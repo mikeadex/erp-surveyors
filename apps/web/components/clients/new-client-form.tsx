@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -34,6 +35,10 @@ interface NewClientFormProps {
   canSelectBranch?: boolean
 }
 
+type ClientCreateRequest = CreateClientInput & {
+  allowDuplicate?: boolean
+}
+
 export function NewClientForm({
   branches,
   initialBranchId,
@@ -42,14 +47,15 @@ export function NewClientForm({
   const router = useRouter()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [tagsInput, setTagsInput] = useState('')
-  const [createdClientId, setCreatedClientId] = useState<string | null>(null)
   const [duplicateWarnings, setDuplicateWarnings] = useState<Array<{
     id: string
     name: string
     score: number
     email: string | null
     phone: string | null
+    rcNumber: string | null
   }>>([])
+  const [pendingDuplicatePayload, setPendingDuplicatePayload] = useState<ClientCreateRequest | null>(null)
 
   const {
     register,
@@ -65,34 +71,49 @@ export function NewClientForm({
   const { fields, append, remove } = useFieldArray({ control, name: 'contacts' })
   const clientType = watch('type')
 
+  async function submitPayload(payload: ClientCreateRequest) {
+    const res = await fetch('/api/v1/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const json = await res.json().catch(() => ({}))
+
+    if (res.status === 409 && json?.error?.code === 'DUPLICATE_CLIENT') {
+      setDuplicateWarnings(json?.data?.duplicateMatches ?? [])
+      setPendingDuplicatePayload(payload)
+      setErrorMsg('Possible duplicates found. Review the matches before creating this client.')
+      return
+    }
+
+    if (!res.ok) {
+      setErrorMsg(json?.error?.message ?? 'Failed to create client')
+      return
+    }
+
+    setPendingDuplicatePayload(null)
+    setDuplicateWarnings([])
+    router.push(`/clients/${json.data.id}`)
+  }
+
   async function onSubmit(data: CreateClientInput) {
     setErrorMsg(null)
     setDuplicateWarnings([])
-    setCreatedClientId(null)
-    const payload: CreateClientInput = {
+    setPendingDuplicatePayload(null)
+    const payload: ClientCreateRequest = {
       ...data,
       tags: tagsInput
         .split(',')
         .map((tag) => tag.trim())
         .filter(Boolean),
     }
-    const res = await fetch('/api/v1/clients', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const json = await res.json()
-    if (!res.ok) {
-      setErrorMsg(json?.error?.message ?? 'Failed to create client')
-      return
-    }
-    const matches = json?.data?.duplicateMatches ?? []
-    if (matches.length > 0) {
-      setDuplicateWarnings(matches)
-      setCreatedClientId(json.data.id)
-      return
-    }
-    router.push(`/clients/${json.data.id}`)
+    await submitPayload(payload)
+  }
+
+  async function createDespiteDuplicates() {
+    if (!pendingDuplicatePayload) return
+    setErrorMsg(null)
+    await submitPayload({ ...pendingDuplicatePayload, allowDuplicate: true })
   }
 
   return (
@@ -207,6 +228,25 @@ export function NewClientForm({
             <p className="mt-1 text-xs text-red-600">{errors.tags.message as string}</p>
           )}
         </div>
+
+        <div>
+          <label htmlFor="notes" className="block text-xs font-medium text-gray-700 mb-1">
+            Relationship Notes
+          </label>
+          <textarea
+            {...register('notes')}
+            id="notes"
+            rows={5}
+            placeholder="Capture context about the relationship, billing preferences, or internal client notes."
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            This is an internal CRM note field and supports longer free-form text.
+          </p>
+          {errors.notes && (
+            <p className="mt-1 text-xs text-red-600">{errors.notes.message}</p>
+          )}
+        </div>
       </section>
 
       {clientType === 'corporate' && (
@@ -263,8 +303,7 @@ export function NewClientForm({
         <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <h3 className="text-sm font-semibold text-amber-900">Possible duplicates detected</h3>
           <p className="mt-1 text-sm text-amber-800">
-            The client was created, but these existing records look similar. Review them before
-            continuing.
+            These existing records look similar. Review them before creating a new client record.
           </p>
           <ul className="mt-3 space-y-2 text-sm text-amber-900">
             {duplicateWarnings.map((match) => (
@@ -274,21 +313,36 @@ export function NewClientForm({
                   Match score {match.score}
                   {match.email ? ` • ${match.email}` : ''}
                   {match.phone ? ` • ${match.phone}` : ''}
+                  {match.rcNumber ? ` • ${match.rcNumber}` : ''}
+                </div>
+                <div className="mt-2">
+                  <Link href={`/clients/${match.id}`} className="text-xs font-semibold text-amber-900 underline">
+                    Review existing client
+                  </Link>
                 </div>
               </li>
             ))}
           </ul>
-          {createdClientId && (
-            <div className="mt-4 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => router.push(`/clients/${createdClientId}`)}
-                className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800"
-              >
-                Open Created Client
-              </button>
-            </div>
-          )}
+          <div className="mt-4 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setDuplicateWarnings([])
+                setPendingDuplicatePayload(null)
+                setErrorMsg(null)
+              }}
+              className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              Cancel Review
+            </button>
+            <button
+              type="button"
+              onClick={createDespiteDuplicates}
+              className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800"
+            >
+              Create Anyway
+            </button>
+          </div>
         </section>
       )}
 

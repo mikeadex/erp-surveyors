@@ -8,7 +8,9 @@ import { formatDate } from '@valuation-os/utils'
 import { Building2, Mail, Phone, MapPin, User } from 'lucide-react'
 import Link from 'next/link'
 import type { CaseStage } from '@valuation-os/types'
-import { assertRecordBranchAccess } from '@/lib/auth/branch-scope'
+import { assertRecordBranchAccess, canAccessAllBranches } from '@/lib/auth/branch-scope'
+import { ClientManagementPanel } from '@/components/clients/client-management-panel'
+import { ClientContactsPanel } from '@/components/clients/client-contacts-panel'
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,14 +22,28 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const session = await verifyAccessToken(token).catch(() => null)
   if (!session) redirect('/login')
 
-  const [user, client] = await Promise.all([
+  const [user, client, branches] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.userId },
       select: { id: true, firstName: true, lastName: true, role: true, email: true },
     }),
     prisma.client.findFirst({
-      where: { id, firmId: session.firmId, deletedAt: null },
-      include: {
+      where: { id, firmId: session.firmId },
+      select: {
+        id: true,
+        branchId: true,
+        type: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        rcNumber: true,
+        notes: true,
+        tags: true,
+        createdAt: true,
+        deletedAt: true,
         branch: { select: { id: true, name: true } },
         contacts: { orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }] },
         cases: {
@@ -42,6 +58,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         _count: { select: { cases: true } },
       },
     }),
+    prisma.branch.findMany({
+      where: { firmId: session.firmId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
   ])
 
   if (!user) redirect('/login')
@@ -51,6 +72,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   } catch {
     notFound()
   }
+  const visibleBranches = canAccessAllBranches(session.role)
+    ? branches
+    : branches.filter((branch) => branch.id === session.branchId)
+  const canArchive = session.role === 'managing_partner' || session.role === 'admin'
 
   return (
     <>
@@ -62,18 +87,43 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           {/* Left: client info */}
           <div className="space-y-6">
             <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50">
-                  {client.type === 'corporate' ? (
-                    <Building2 className="h-5 w-5 text-blue-600" />
-                  ) : (
-                    <User className="h-5 w-5 text-blue-600" />
-                  )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50">
+                    {client.type === 'corporate' ? (
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                    ) : (
+                      <User className="h-5 w-5 text-blue-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold text-gray-900">{client.name}</p>
+                    <p className="text-xs text-gray-400 capitalize">{client.type}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-base font-semibold text-gray-900">{client.name}</p>
-                  <p className="text-xs text-gray-400 capitalize">{client.type}</p>
-                </div>
+                <ClientManagementPanel
+                  clientId={client.id}
+                  initial={{
+                    branchId: client.branchId,
+                    branchName: client.branch?.name ?? null,
+                    type: client.type,
+                    name: client.name,
+                    email: client.email,
+                    phone: client.phone,
+                    address: client.address,
+                    city: client.city,
+                    state: client.state,
+                    rcNumber: client.rcNumber,
+                    notes: client.notes,
+                    tags: client.tags,
+                    deletedAt: client.deletedAt?.toISOString() ?? null,
+                  }}
+                  branches={visibleBranches}
+                  canSelectBranch={canAccessAllBranches(session.role)}
+                  canArchive={canArchive}
+                  mode="trigger"
+                  buttonClassName="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                />
               </div>
 
               {client.tags.length > 0 && (
@@ -86,6 +136,17 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                       {tag}
                     </span>
                   ))}
+                </div>
+              )}
+
+              {client.notes && (
+                <div className="rounded-xl bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Relationship Notes
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                    {client.notes}
+                  </p>
                 </div>
               )}
 
@@ -135,33 +196,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </dl>
             </section>
 
-            {/* Contacts */}
-            {client.contacts.length > 0 && (
-              <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Contacts</h2>
-                <ul className="space-y-3">
-                  {client.contacts.map((c: typeof client.contacts[0]) => (
-                    <li key={c.id} className="text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-medium text-gray-900">{c.name}</p>
-                        {c.isPrimary && (
-                          <span className="text-[10px] font-semibold rounded-full bg-blue-50 text-blue-600 px-1.5 py-0.5">
-                            Primary
-                          </span>
-                        )}
-                      </div>
-                      {c.role && <p className="text-xs text-gray-400">{c.role}</p>}
-                      {c.email && (
-                        <a href={`mailto:${c.email}`} className="text-xs text-blue-600 hover:underline">
-                          {c.email}
-                        </a>
-                      )}
-                      {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            <ClientContactsPanel
+              clientId={client.id}
+              contacts={client.contacts.map((contact) => ({
+                id: contact.id,
+                name: contact.name,
+                role: contact.role,
+                email: contact.email,
+                phone: contact.phone,
+                isPrimary: contact.isPrimary,
+              }))}
+              isArchived={Boolean(client.deletedAt)}
+            />
           </div>
 
           {/* Right: cases */}

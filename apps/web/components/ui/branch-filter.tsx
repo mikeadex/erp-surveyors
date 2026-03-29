@@ -13,6 +13,7 @@ interface BranchFilterProps {
   queryKey?: string
   label?: string
   allLabel?: string
+  clearKeys?: string[]
 }
 
 export function BranchFilter({
@@ -20,6 +21,7 @@ export function BranchFilter({
   queryKey = 'branchId',
   label = 'Branch',
   allLabel = 'All branches',
+  clearKeys = ['page'],
 }: BranchFilterProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -32,10 +34,12 @@ export function BranchFilter({
       } else {
         params.delete(queryKey)
       }
-      params.delete('page')
+      for (const key of clearKeys) {
+        params.delete(key)
+      }
       router.push(params.toString() ? `?${params.toString()}` : '?')
     },
-    [queryKey, router, searchParams],
+    [clearKeys, queryKey, router, searchParams],
   )
 
   if (branches.length === 0) return null

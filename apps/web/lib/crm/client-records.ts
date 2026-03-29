@@ -1,4 +1,5 @@
 import { Errors } from '@/lib/api/errors'
+import type { Prisma } from '@prisma/client'
 
 type DuplicateCandidate = {
   id: string
@@ -6,12 +7,14 @@ type DuplicateCandidate = {
   type: 'individual' | 'corporate'
   email: string | null
   phone: string | null
+  rcNumber: string | null
 }
 
 type DuplicateInput = {
   name: string
   email?: string | undefined
   phone?: string | undefined
+  rcNumber?: string | undefined
 }
 
 type ContactInput = {
@@ -24,6 +27,44 @@ type ContactInput = {
 
 function normalize(value?: string | null): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+export function normalizeClientText(value?: string | null): string | undefined {
+  const normalized = (value ?? '').trim()
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function tokenizeSearch(value?: string | null): string[] {
+  return Array.from(
+    new Set(
+      normalize(value)
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter(Boolean),
+    ),
+  )
+}
+
+export function buildClientSearchWhere(search?: string | null): Prisma.ClientWhereInput | undefined {
+  const terms = tokenizeSearch(search)
+  if (terms.length === 0) return undefined
+
+  return {
+    AND: terms.map((term) => ({
+      OR: [
+        { name: { contains: term, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { phone: { contains: term, mode: 'insensitive' } },
+        { rcNumber: { contains: term, mode: 'insensitive' } },
+        { address: { contains: term, mode: 'insensitive' } },
+        { city: { contains: term, mode: 'insensitive' } },
+        { state: { contains: term, mode: 'insensitive' } },
+        { notes: { contains: term, mode: 'insensitive' } },
+        { tags: { has: term } },
+        { branch: { name: { contains: term, mode: 'insensitive' } } },
+      ],
+    })),
+  }
 }
 
 function trigramSet(value: string): Set<string> {
@@ -89,6 +130,7 @@ export function findClientDuplicateMatches(
   const inputName = normalize(input.name)
   const inputEmail = normalize(input.email)
   const inputPhone = normalize(input.phone)
+  const inputRcNumber = normalize(input.rcNumber)
 
   return candidates
     .map((candidate) => {
@@ -96,6 +138,7 @@ export function findClientDuplicateMatches(
         inputName && candidate.name ? trigramSimilarity(inputName, candidate.name) : 0,
         inputEmail && candidate.email && inputEmail === normalize(candidate.email) ? 1 : 0,
         inputPhone && candidate.phone && inputPhone === normalize(candidate.phone) ? 1 : 0,
+        inputRcNumber && candidate.rcNumber && inputRcNumber === normalize(candidate.rcNumber) ? 1 : 0,
       )
 
       return {
@@ -104,6 +147,7 @@ export function findClientDuplicateMatches(
         type: candidate.type,
         email: candidate.email,
         phone: candidate.phone,
+        rcNumber: candidate.rcNumber,
         score: Number(score.toFixed(2)),
       }
     })

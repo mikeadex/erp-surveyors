@@ -4,7 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { UpdateClientSchema } from '@valuation-os/utils'
 import { requireRole } from '@/lib/auth/guards'
-import { normalizeClientTags } from '@/lib/crm/client-records'
+import { findClientDuplicateMatches, normalizeClientTags, normalizeClientText } from '@/lib/crm/client-records'
 import { assertRecordBranchAccess, resolveManagedClientBranchId } from '@/lib/auth/branch-scope'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
@@ -12,7 +12,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     const { id } = await ctx.params
 
     const client = await req.db.client.findUnique({
-      where: { id, deletedAt: null },
+      where: { id },
       include: {
         branch: { select: { id: true, name: true } },
         contacts: {
@@ -59,21 +59,41 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     if ('phone' in patchData && typeof patchData.phone === 'string') {
       patchData.phone = patchData.phone.trim()
     }
-    if ('address' in patchData && typeof patchData.address === 'string') {
-      patchData.address = patchData.address.trim()
-    }
-    if ('city' in patchData && typeof patchData.city === 'string') {
-      patchData.city = patchData.city.trim()
-    }
-    if ('state' in patchData && typeof patchData.state === 'string') {
-      patchData.state = patchData.state.trim()
-    }
-    if ('rcNumber' in patchData && typeof patchData.rcNumber === 'string') {
-      patchData.rcNumber = patchData.rcNumber.trim()
-    }
+    if ('address' in patchData) patchData.address = normalizeClientText(body.address) ?? null
+    if ('city' in patchData) patchData.city = normalizeClientText(body.city) ?? null
+    if ('state' in patchData) patchData.state = normalizeClientText(body.state) ?? null
+    if ('rcNumber' in patchData) patchData.rcNumber = normalizeClientText(body.rcNumber) ?? null
+    if ('notes' in patchData) patchData.notes = normalizeClientText(body.notes) ?? null
     if ('tags' in patchData) {
       patchData.tags = normalizeClientTags(body.tags)
     }
+
+    const duplicateCandidates = await req.db.client.findMany({
+      where: {
+        deletedAt: null,
+        NOT: { id },
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        email: true,
+        phone: true,
+        rcNumber: true,
+      },
+      take: 100,
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const duplicateMatches = findClientDuplicateMatches(
+      {
+        name: String(patchData.name ?? existing.name),
+        email: typeof patchData.email === 'string' ? patchData.email : existing.email ?? undefined,
+        phone: typeof patchData.phone === 'string' ? patchData.phone : existing.phone ?? undefined,
+        rcNumber: typeof patchData.rcNumber === 'string' ? patchData.rcNumber : existing.rcNumber ?? undefined,
+      },
+      duplicateCandidates,
+    )
 
     await req.db.client.updateMany({
       where: { id, deletedAt: null },
@@ -83,11 +103,11 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
       where: { id, deletedAt: null },
       select: {
         id: true, branchId: true, type: true, name: true, email: true,
-        phone: true, tags: true, updatedAt: true,
+        phone: true, rcNumber: true, notes: true, tags: true, updatedAt: true,
       },
     })
     if (!client) throw Errors.NOT_FOUND('Client')
-    return ok(client)
+    return ok({ ...client, duplicateMatches })
   } catch (err) {
     return errorResponse(err)
   }

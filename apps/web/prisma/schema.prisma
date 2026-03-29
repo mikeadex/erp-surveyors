@@ -154,6 +154,7 @@ model Client {
   city      String?    @db.VarChar(100)
   state     String?    @db.VarChar(100)
   rcNumber  String?    @db.VarChar(50)
+  notes     String?    @db.Text
   tags      String[]   @default([])
   createdById String
   createdAt DateTime   @default(now())

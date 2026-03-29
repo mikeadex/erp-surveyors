@@ -16,6 +16,7 @@ export interface ClientDuplicateMatch {
   type: ClientType
   email: string | null
   phone: string | null
+  rcNumber: string | null
   score: number
 }
 
@@ -31,6 +32,7 @@ export interface Client {
   city: string | null
   state: string | null
   rcNumber: string | null
+  notes: string | null
   tags: string[]
   contacts: Contact[]
   createdAt: string

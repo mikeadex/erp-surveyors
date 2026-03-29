@@ -3,8 +3,20 @@ import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
 import { ok, created, errorResponse } from '@/lib/api/response'
 import { parsePagination, parseSearch } from '@/lib/api/pagination'
 import { CreateClientSchema } from '@valuation-os/utils'
-import { findClientDuplicateMatches, normalizeClientContacts, normalizeClientTags } from '@/lib/crm/client-records'
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import {
+  buildClientSearchWhere,
+  findClientDuplicateMatches,
+  normalizeClientContacts,
+  normalizeClientTags,
+  normalizeClientText,
+} from '@/lib/crm/client-records'
 import { resolveManagedClientBranchId, resolveScopedBranchId } from '@/lib/auth/branch-scope'
+
+const CreateClientRequestSchema = CreateClientSchema.extend({
+  allowDuplicate: z.boolean().optional(),
+})
 
 export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   try {
@@ -12,28 +24,22 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
     const search = parseSearch(req)
     const type = req.nextUrl.searchParams.get('type')
     const tag = req.nextUrl.searchParams.get('tag')
+    const status = req.nextUrl.searchParams.get('status') ?? 'active'
     const scopedBranchId = await resolveScopedBranchId(
       req.session,
       req.nextUrl.searchParams.get('branchId'),
     )
 
     const where = {
-      deletedAt: null,
+      ...(status === 'archived'
+        ? { deletedAt: { not: null } }
+        : status === 'all'
+          ? {}
+          : { deletedAt: null }),
       ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
       ...(type ? { type: type as 'individual' | 'corporate' } : {}),
       ...(tag ? { tags: { has: tag.trim().toLowerCase() } } : {}),
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' as const } },
-              { email: { contains: search, mode: 'insensitive' as const } },
-              { phone: { contains: search, mode: 'insensitive' as const } },
-              { rcNumber: { contains: search, mode: 'insensitive' as const } },
-              { city: { contains: search, mode: 'insensitive' as const } },
-              { state: { contains: search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
+      ...(buildClientSearchWhere(search) ?? {}),
     }
 
     const [items, total] = await Promise.all([
@@ -41,7 +47,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
         where,
         select: {
           id: true, branchId: true, type: true, name: true, email: true,
-          phone: true, city: true, state: true, createdAt: true,
+          phone: true, city: true, state: true, createdAt: true, deletedAt: true,
           tags: true,
           branch: { select: { id: true, name: true } },
           _count: { select: { cases: true } },
@@ -61,7 +67,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
 
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
-    const body = CreateClientSchema.parse(await req.json())
+    const body = CreateClientRequestSchema.parse(await req.json())
     const branchId = await resolveManagedClientBranchId(req.session, body.branchId ?? null)
     const contacts = normalizeClientContacts(body.contacts)
     const tags = normalizeClientTags(body.tags)
@@ -74,15 +80,30 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
         type: true,
         email: true,
         phone: true,
+        rcNumber: true,
       },
       take: 100,
       orderBy: { createdAt: 'desc' },
     })
 
     const duplicateMatches = findClientDuplicateMatches(
-      { name: body.name, email: body.email, phone: body.phone },
+      { name: body.name, email: body.email, phone: body.phone, rcNumber: body.rcNumber },
       duplicateCandidates,
     )
+
+    if (duplicateMatches.length > 0 && !body.allowDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'DUPLICATE_CLIENT',
+            message: 'Possible duplicate clients found',
+          },
+          data: { duplicateMatches },
+        },
+        { status: 409 },
+      )
+    }
 
     const client = await req.db.client.create({
       data: {
@@ -95,6 +116,7 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
         ...(body.city ? { city: body.city.trim() } : {}),
         ...(body.state ? { state: body.state.trim() } : {}),
         ...(body.rcNumber ? { rcNumber: body.rcNumber.trim() } : {}),
+        ...(normalizeClientText(body.notes) ? { notes: normalizeClientText(body.notes) } : {}),
         tags,
         createdById: req.session.userId,
         ...(contacts.length > 0
@@ -113,7 +135,7 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
       },
       select: {
         id: true, branchId: true, type: true, name: true, email: true,
-        phone: true, tags: true, createdAt: true,
+        phone: true, rcNumber: true, notes: true, tags: true, createdAt: true,
       },
     })
     return created({ ...client, duplicateMatches })

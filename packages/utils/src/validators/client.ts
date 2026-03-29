@@ -23,6 +23,7 @@ export const CreateClientSchema = z.object({
   city: trimmedOptionalString(100),
   state: trimmedOptionalString(100),
   rcNumber: trimmedOptionalString(50),
+  notes: trimmedOptionalString(4000),
   tags: TagsSchema,
   contacts: z.array(ContactSchema).optional(),
 })

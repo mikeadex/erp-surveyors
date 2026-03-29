@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, queryKeys } from '@valuation-os/api'
 import { formatDate, getCaseStageLabel } from '@valuation-os/utils'
@@ -46,22 +46,22 @@ export default function CasesTab() {
 
   return (
     <ScrollView
-      className="flex-1 bg-gray-50"
+      style={styles.screen}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="p-4 space-y-4">
-        <Text className="text-lg font-semibold text-gray-900">Cases</Text>
+      <View style={styles.container}>
+        <Text style={styles.heading}>Cases</Text>
 
-        <View className="flex-row gap-2">
+        <View style={styles.filtersRow}>
           {FILTERS.map((item) => {
             const active = item.value === filter
             return (
               <TouchableOpacity
                 key={item.value}
                 onPress={() => setFilter(item.value)}
-                className={`rounded-full px-3 py-2 ${active ? 'bg-blue-600' : 'bg-white border border-gray-200'}`}
+                style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipIdle]}
               >
-                <Text className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-600'}`}>
+                <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextIdle]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -69,34 +69,34 @@ export default function CasesTab() {
           })}
         </View>
 
-        <View className="space-y-3">
+        <View style={styles.list}>
           {data?.items.length ? (
             data.items.map((item) => (
-              <View key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4">
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-base font-semibold text-gray-900">{item.reference}</Text>
-                    <Text className="mt-1 text-sm text-gray-600">{item.client.name}</Text>
-                    <Text className="mt-1 text-sm text-gray-500">{item.property.address}</Text>
+              <View key={item.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardBody}>
+                    <Text style={styles.reference}>{item.reference}</Text>
+                    <Text style={styles.clientName}>{item.client.name}</Text>
+                    <Text style={styles.address}>{item.property.address}</Text>
                   </View>
-                  <View className={`rounded-full px-2.5 py-1 ${item.isOverdue ? 'bg-red-100' : 'bg-blue-50'}`}>
-                    <Text className={`text-[10px] font-semibold ${item.isOverdue ? 'text-red-700' : 'text-blue-700'}`}>
+                  <View style={[styles.badge, item.isOverdue ? styles.badgeOverdue : styles.badgeDefault]}>
+                    <Text style={[styles.badgeText, item.isOverdue ? styles.badgeTextOverdue : styles.badgeTextDefault]}>
                       {getCaseStageLabel(item.stage as never)}
                     </Text>
                   </View>
                 </View>
 
-                <View className="mt-3 flex-row justify-between">
-                  <Text className="text-xs text-gray-500">
+                <View style={styles.cardFooter}>
+                  <Text style={styles.metaText}>
                     Due {item.dueDate ? formatDate(item.dueDate) : 'Not set'}
                   </Text>
-                  <Text className="text-xs text-gray-500 capitalize">{item.valuationType}</Text>
+                  <Text style={styles.metaText}>{item.valuationType}</Text>
                 </View>
               </View>
             ))
           ) : (
-            <View className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-10">
-              <Text className="text-center text-sm text-gray-500">
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
                 {isLoading ? 'Loading cases…' : 'No cases found for this filter.'}
               </Text>
             </View>
@@ -106,3 +106,126 @@ export default function CasesTab() {
     </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    padding: 16,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterChipActive: {
+    backgroundColor: '#2563eb',
+  },
+  filterChipIdle: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
+  },
+  filterChipTextIdle: {
+    color: '#475569',
+  },
+  list: {
+    gap: 12,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardBody: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  reference: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  clientName: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#334155',
+  },
+  address: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#64748b',
+  },
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  badgeOverdue: {
+    backgroundColor: '#fee2e2',
+  },
+  badgeDefault: {
+    backgroundColor: '#dbeafe',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgeTextOverdue: {
+    color: '#b91c1c',
+  },
+  badgeTextDefault: {
+    color: '#1d4ed8',
+  },
+  cardFooter: {
+    marginTop: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#64748b',
+    textTransform: 'capitalize',
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 40,
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#64748b',
+  },
+})

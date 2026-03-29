@@ -315,3 +315,46 @@ curl -b cookies.txt -c cookies.txt -X POST http://localhost:3000/api/v1/auth/log
 curl -b cookies.txt http://localhost:3000/api/v1/auth/me
 ```
 **Expected:** `401 UNAUTHORIZED`
+
+---
+
+## 16. Mobile Login Guard
+
+1. Launch the Expo app with `EXPO_PUBLIC_API_URL` pointed at the local web server.
+2. Confirm signed-out state opens the login screen instead of the tab shell.
+3. Sign in with a valid Module A user account.
+
+**Expected:** Successful login routes into the mobile tabs and subsequent API-backed screens load without requiring cookies.
+
+---
+
+## 17. Mobile Forgot Password
+
+1. From the mobile login screen, tap `Forgot password?`
+2. Submit a valid user email.
+3. Enter the 6-digit reset code from the backend response/console and a new valid password.
+4. Return to login and sign in with the new password.
+
+**Expected:** Reset succeeds, old password no longer works, and the new password signs in successfully.
+
+---
+
+## 18. Mobile Change Password
+
+1. Sign in on mobile.
+2. Open the Profile tab.
+3. Submit the current password and a valid new password in the change-password form.
+4. Sign out and sign back in with the new password.
+
+**Expected:** Password update succeeds and the old password is rejected afterwards.
+
+---
+
+## 19. Mobile Push Token Registration
+
+1. Install the Expo app on a physical device with notification permissions available.
+2. Set `EXPO_PUBLIC_EAS_PROJECT_ID` for the mobile app runtime.
+3. Sign in and grant notification permissions when prompted.
+4. Call `GET /api/v1/auth/me` for the same user from the web/API side.
+
+**Expected:** `expoPushToken` is populated on the user record after mobile sign-in and permission grant.

@@ -59,6 +59,8 @@ Important variables are defined in [.env.example](/Users/michaeladeleye/Document
 - `JWT_ACCESS_EXPIRES_IN`
 - `JWT_REFRESH_EXPIRES_IN`
 - `NEXT_PUBLIC_APP_URL`
+- `EXPO_PUBLIC_API_URL`
+- `EXPO_PUBLIC_EAS_PROJECT_ID` for Expo push token registration on device builds
 
 In production, JWT secrets must be explicitly configured. The app will not fall back to development secrets.
 
@@ -109,6 +111,18 @@ Key auth files:
 - [apps/web/lib/auth/session.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/session.ts)
 - [apps/web/lib/auth/password.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/password.ts)
 - [apps/web/lib/api/with-auth.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/api/with-auth.ts)
+
+## Mobile Module A Coverage
+
+The mobile app now covers the core Module A flows:
+
+- Session-aware routing and tab protection in [apps/mobile/app/_layout.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/_layout.tsx)
+- Login in [apps/mobile/app/(auth)/login.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(auth)/login.tsx)
+- Password reset request and confirmation in [apps/mobile/app/(auth)/reset-password.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(auth)/reset-password.tsx)
+- Profile, branch/firm context, and password change in [apps/mobile/app/(tabs)/profile.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(tabs)/profile.tsx)
+- Expo push token registration in [apps/mobile/lib/notifications.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/lib/notifications.ts)
+
+The mobile client stores and refreshes bearer tokens through [apps/mobile/lib/storage.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/lib/storage.ts) and [packages/api/src/client.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/packages/api/src/client.ts).
 
 ## Notes
 

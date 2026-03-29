@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@valuation-os/api'
 import { formatDate } from '@valuation-os/utils'
@@ -41,22 +41,22 @@ export default function InspectionsTab() {
 
   return (
     <ScrollView
-      className="flex-1 bg-gray-50"
+      style={styles.screen}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="p-4 space-y-4">
-        <Text className="text-lg font-semibold text-gray-900">Inspections</Text>
+      <View style={styles.container}>
+        <Text style={styles.heading}>Inspections</Text>
 
-        <View className="flex-row gap-2">
+        <View style={styles.filtersRow}>
           {FILTERS.map((item) => {
             const active = item.value === status
             return (
               <TouchableOpacity
                 key={item.label}
                 onPress={() => setStatus(item.value)}
-                className={`rounded-full px-3 py-2 ${active ? 'bg-blue-600' : 'bg-white border border-gray-200'}`}
+                style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipIdle]}
               >
-                <Text className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-600'}`}>
+                <Text style={[styles.filterText, active ? styles.filterTextActive : styles.filterTextIdle]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -64,33 +64,33 @@ export default function InspectionsTab() {
           })}
         </View>
 
-        <View className="space-y-3">
+        <View style={styles.list}>
           {data?.items.length ? (
             data.items.map((item) => (
-              <View key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-base font-semibold text-gray-900">{item.case.reference}</Text>
-                  <View className={`rounded-full px-2.5 py-1 ${item.status === 'submitted' ? 'bg-green-100' : 'bg-amber-100'}`}>
-                    <Text className={`text-[10px] font-semibold ${item.status === 'submitted' ? 'text-green-700' : 'text-amber-700'}`}>
+              <View key={item.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.reference}>{item.case.reference}</Text>
+                  <View style={[styles.badge, item.status === 'submitted' ? styles.badgeSubmitted : styles.badgeDraft]}>
+                    <Text style={[styles.badgeText, item.status === 'submitted' ? styles.badgeTextSubmitted : styles.badgeTextDraft]}>
                       {item.status === 'submitted' ? 'Submitted' : 'Draft'}
                     </Text>
                   </View>
                 </View>
 
-                <Text className="mt-2 text-sm text-gray-600">
+                <Text style={styles.metaLine}>
                   Inspector: {item.inspector.firstName} {item.inspector.lastName}
                 </Text>
-                <Text className="mt-1 text-xs text-gray-500">
+                <Text style={styles.subMeta}>
                   Inspection date: {item.inspectionDate ? formatDate(item.inspectionDate) : 'Not scheduled'}
                 </Text>
-                <Text className="mt-1 text-xs text-gray-500">
+                <Text style={styles.subMeta}>
                   Submitted: {item.submittedAt ? formatDate(item.submittedAt) : 'Not yet'}
                 </Text>
               </View>
             ))
           ) : (
-            <View className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-10">
-              <Text className="text-center text-sm text-gray-500">
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
                 {isLoading ? 'Loading inspections…' : 'No inspections found.'}
               </Text>
             </View>
@@ -100,3 +100,112 @@ export default function InspectionsTab() {
     </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    padding: 16,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterChipActive: {
+    backgroundColor: '#2563eb',
+  },
+  filterChipIdle: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterTextActive: {
+    color: '#ffffff',
+  },
+  filterTextIdle: {
+    color: '#475569',
+  },
+  list: {
+    gap: 12,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reference: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  badgeSubmitted: {
+    backgroundColor: '#dcfce7',
+  },
+  badgeDraft: {
+    backgroundColor: '#fef3c7',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgeTextSubmitted: {
+    color: '#15803d',
+  },
+  badgeTextDraft: {
+    color: '#b45309',
+  },
+  metaLine: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#334155',
+  },
+  subMeta: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#64748b',
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 40,
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#64748b',
+  },
+})

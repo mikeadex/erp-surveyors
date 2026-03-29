@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, apiPost } from '@valuation-os/api'
 import { formatDateTime } from '@valuation-os/utils'
@@ -37,38 +37,38 @@ export default function NotificationsTab() {
 
   return (
     <ScrollView
-      className="flex-1 bg-gray-50"
+      style={styles.screen}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="p-4 space-y-4">
-        <View className="flex-row items-center justify-between">
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
           <View>
-            <Text className="text-lg font-semibold text-gray-900">Alerts</Text>
-            <Text className="mt-1 text-sm text-gray-500">
+            <Text style={styles.heading}>Alerts</Text>
+            <Text style={styles.subheading}>
               {data?.unreadCount ?? 0} unread notification{(data?.unreadCount ?? 0) === 1 ? '' : 's'}
             </Text>
           </View>
 
-          <TouchableOpacity onPress={markAllRead} className="rounded-full bg-white px-3 py-2 border border-gray-200">
-            <Text className="text-xs font-semibold text-gray-700">Mark all read</Text>
+          <TouchableOpacity onPress={markAllRead} style={styles.markAllButton}>
+            <Text style={styles.markAllButtonText}>Mark all read</Text>
           </TouchableOpacity>
         </View>
 
-        <View className="space-y-3">
+        <View style={styles.list}>
           {data?.items.length ? (
             data.items.map((item) => (
               <View
                 key={item.id}
-                className={`rounded-2xl border p-4 ${item.readAt ? 'border-gray-200 bg-white' : 'border-blue-200 bg-blue-50'}`}
+                style={[styles.card, item.readAt ? styles.cardRead : styles.cardUnread]}
               >
-                <Text className="text-sm font-semibold text-gray-900">{item.title}</Text>
-                {item.body ? <Text className="mt-1 text-sm text-gray-600">{item.body}</Text> : null}
-                <Text className="mt-2 text-xs text-gray-500">{formatDateTime(item.createdAt)}</Text>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
+                <Text style={styles.cardMeta}>{formatDateTime(item.createdAt)}</Text>
               </View>
             ))
           ) : (
-            <View className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-10">
-              <Text className="text-center text-sm text-gray-500">
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
                 {isLoading ? 'Loading alerts…' : 'No notifications yet.'}
               </Text>
             </View>
@@ -78,3 +78,88 @@ export default function NotificationsTab() {
     </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    padding: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  subheading: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#64748b',
+  },
+  markAllButton: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  markAllButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  list: {
+    gap: 12,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 16,
+  },
+  cardRead: {
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+  },
+  cardUnread: {
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  cardBody: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#475569',
+  },
+  cardMeta: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#64748b',
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 40,
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#64748b',
+  },
+})

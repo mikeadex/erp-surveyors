@@ -22,6 +22,9 @@ export const GET = withAuth(async (req: AuthedRequest) => {
         expoPushToken: true,
         createdAt: true,
         updatedAt: true,
+        branch: {
+          select: { id: true, name: true },
+        },
         firm: {
           select: { id: true, name: true, slug: true, logoKey: true },
         },

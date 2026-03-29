@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView, StyleSheet,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoginSchema, type LoginInput } from '@valuation-os/utils'
 import { apiPost } from '@valuation-os/api'
-import { setSessionTokens, storage } from '@/lib/storage'
+import { setSessionContext, setSessionTokens } from '@/lib/storage'
 
 export default function LoginScreen() {
   const router = useRouter()
@@ -24,7 +24,7 @@ export default function LoginScreen() {
       const res = await apiPost<{
         accessToken: string
         refreshToken?: string
-        user: { id: string; firmId: string; role: string }
+        user: { id: string; firmId: string; branchId?: string | null; role: string }
       }>(
         '/api/v1/auth/login',
         data,
@@ -33,10 +33,13 @@ export default function LoginScreen() {
         accessToken: res.accessToken,
         ...(res.refreshToken ? { refreshToken: res.refreshToken } : {}),
       })
-      storage.set('user_id', res.user.id)
-      storage.set('firm_id', res.user.firmId)
-      storage.set('role', res.user.role)
-      router.replace('/(tabs)/')
+      setSessionContext({
+        userId: res.user.id,
+        firmId: res.user.firmId,
+        role: res.user.role,
+        branchId: res.user.branchId ?? null,
+      })
+      router.replace('/(tabs)')
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Login failed')
     }
@@ -45,22 +48,23 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      style={styles.screen}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View className="flex-1 justify-center px-6 py-12">
-          <Text className="text-2xl font-bold text-gray-900 mb-1">Valuation OS</Text>
-          <Text className="text-sm text-gray-500 mb-8">Sign in to your firm account</Text>
+        <View style={styles.container}>
+          <Text style={styles.title}>Valuation OS</Text>
+          <Text style={styles.subtitle}>Sign in to your firm account</Text>
 
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-700 mb-1">Email</Text>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Email</Text>
             <Controller
               control={control}
               name="email"
               render={({ field: { onChange, value } }) => (
                 <TextInput
-                  className="border border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-900"
+                  style={styles.input}
                   placeholder="you@yourfirm.com"
+                  placeholderTextColor="#9ca3af"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -70,19 +74,20 @@ export default function LoginScreen() {
               )}
             />
             {errors.email && (
-              <Text className="mt-1 text-xs text-red-600">{errors.email.message}</Text>
+              <Text style={styles.errorText}>{errors.email.message}</Text>
             )}
           </View>
 
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-gray-700 mb-1">Password</Text>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Password</Text>
             <Controller
               control={control}
               name="password"
               render={({ field: { onChange, value } }) => (
                 <TextInput
-                  className="border border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-900"
+                  style={styles.input}
                   placeholder="••••••••••"
+                  placeholderTextColor="#9ca3af"
                   secureTextEntry
                   value={value}
                   onChangeText={onChange}
@@ -90,27 +95,120 @@ export default function LoginScreen() {
               )}
             />
             {errors.password && (
-              <Text className="mt-1 text-xs text-red-600">{errors.password.message}</Text>
+              <Text style={styles.errorText}>{errors.password.message}</Text>
             )}
           </View>
 
           {serverError && (
-            <View className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-              <Text className="text-sm text-red-700">{serverError}</Text>
+            <View style={styles.errorBox}>
+              <Text style={styles.errorBoxText}>{serverError}</Text>
             </View>
           )}
 
           <TouchableOpacity
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
-            className="rounded-lg bg-blue-600 py-3 items-center"
+            style={[styles.primaryButton, isSubmitting ? styles.primaryButtonDisabled : null]}
           >
-            <Text className="text-sm font-semibold text-white">
+            <Text style={styles.primaryButtonText}>
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(auth)/reset-password')}
+            style={styles.secondaryAction}
+          >
+            <Text style={styles.secondaryActionText}>Forgot password?</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 48,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#64748b',
+    marginBottom: 32,
+  },
+  fieldGroup: {
+    marginBottom: 18,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#0f172a',
+  },
+  errorText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#dc2626',
+  },
+  errorBox: {
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 14,
+    backgroundColor: '#fef2f2',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  errorBoxText: {
+    fontSize: 14,
+    color: '#b91c1c',
+  },
+  primaryButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: '#2563eb',
+    paddingVertical: 15,
+    marginTop: 8,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  primaryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  secondaryAction: {
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  secondaryActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+})

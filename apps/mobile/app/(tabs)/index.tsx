@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, RefreshControl } from 'react-native'
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys, apiGet } from '@valuation-os/api'
 import { useState } from 'react'
@@ -33,19 +33,19 @@ export default function DashboardTab() {
 
   return (
     <ScrollView
-      className="flex-1 bg-gray-50"
+      style={styles.screen}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="p-4">
-        <Text className="text-lg font-semibold text-gray-900 mb-4">Overview</Text>
-        <View className="flex-row flex-wrap gap-3">
+      <View style={styles.container}>
+        <Text style={styles.heading}>Overview</Text>
+        <View style={styles.grid}>
           {stats.map((s) => (
             <View
               key={s.label}
-              className="flex-1 min-w-[40%] bg-white rounded-xl border border-gray-200 p-4"
+              style={styles.card}
             >
-              <Text className="text-sm text-gray-500">{s.label}</Text>
-              <Text className="text-3xl font-bold mt-2" style={{ color: s.color }}>
+              <Text style={styles.cardLabel}>{s.label}</Text>
+              <Text style={[styles.cardValue, { color: s.color }]}>
                 {s.value}
               </Text>
             </View>
@@ -55,3 +55,42 @@ export default function DashboardTab() {
     </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    padding: 16,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  card: {
+    minWidth: '47%',
+    flexGrow: 1,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    padding: 16,
+  },
+  cardLabel: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  cardValue: {
+    marginTop: 10,
+    fontSize: 34,
+    fontWeight: '700',
+  },
+})

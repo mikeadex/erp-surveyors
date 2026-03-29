@@ -1,0 +1,652 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── FIRMS & BRANCHES ─────────────────────────────────────────
+
+model Firm {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(200)
+  slug         String   @unique @db.VarChar(60)
+  rcNumber     String?  @db.VarChar(50)
+  esvarNumber  String?  @db.VarChar(50)
+  address      String?  @db.VarChar(400)
+  city         String?  @db.VarChar(100)
+  state        String?  @db.VarChar(100)
+  phone        String?  @db.VarChar(30)
+  email        String?  @db.VarChar(200)
+  logoKey      String?  @db.VarChar(500)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  branches      Branch[]
+  users         User[]
+  clients       Client[]
+  properties    Property[]
+  cases         Case[]
+  comparables   Comparable[]
+  comparableImportJobs ComparableImportJob[]
+  invoices      Invoice[]
+  documents     Document[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  reportTemplates ReportTemplate[]
+
+  @@map("firms")
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  firmId    String
+  firm      Firm     @relation(fields: [firmId], references: [id])
+  name      String   @db.VarChar(200)
+  address   String?  @db.VarChar(400)
+  city      String?  @db.VarChar(100)
+  state     String?  @db.VarChar(100)
+  phone     String?  @db.VarChar(30)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  cases Case[]
+
+  @@index([firmId])
+  @@map("branches")
+}
+
+// ─── USERS ────────────────────────────────────────────────────
+
+enum UserRole {
+  managing_partner
+  reviewer
+  valuer
+  admin
+  finance
+  field_officer
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  firmId              String
+  firm                Firm      @relation(fields: [firmId], references: [id])
+  branchId            String?
+  branch              Branch?   @relation(fields: [branchId], references: [id])
+  email               String    @unique @db.VarChar(200)
+  passwordHash        String    @db.VarChar(100)
+  firstName           String    @db.VarChar(100)
+  lastName            String    @db.VarChar(100)
+  phone               String?   @db.VarChar(30)
+  role                UserRole
+  isActive            Boolean   @default(true)
+  lastLoginAt         DateTime?
+  invitedById         String?
+  invitedBy           User?     @relation("InvitedBy", fields: [invitedById], references: [id])
+  invitations         User[]    @relation("InvitedBy")
+  invitationToken     String?   @db.VarChar(100)
+  invitationExpiresAt DateTime?
+  expoPushToken       String?   @db.VarChar(500)
+  refreshToken        String?   @db.VarChar(500)
+  refreshTokenExpiresAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  assignedCases    Case[]         @relation("AssignedValuer")
+  reviewingCases   Case[]         @relation("AssignedReviewer")
+  inspections      Inspection[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+
+  @@index([firmId])
+  @@index([firmId, role])
+  @@map("users")
+}
+
+// ─── CLIENTS ──────────────────────────────────────────────────
+
+enum ClientType {
+  individual
+  corporate
+}
+
+model Contact {
+  id        String  @id @default(uuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id])
+  name      String  @db.VarChar(200)
+  email     String? @db.VarChar(200)
+  phone     String? @db.VarChar(30)
+  role      String? @db.VarChar(100)
+  isPrimary Boolean @default(false)
+
+  @@index([clientId])
+  @@map("contacts")
+}
+
+model Client {
+  id        String     @id @default(uuid())
+  firmId    String
+  firm      Firm       @relation(fields: [firmId], references: [id])
+  type      ClientType
+  name      String     @db.VarChar(200)
+  email     String?    @db.VarChar(200)
+  phone     String?    @db.VarChar(30)
+  address   String?    @db.VarChar(400)
+  city      String?    @db.VarChar(100)
+  state     String?    @db.VarChar(100)
+  rcNumber  String?    @db.VarChar(50)
+  createdById String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  contacts  Contact[]
+  cases     Case[]
+  invoices  Invoice[]
+
+  @@index([firmId])
+  @@map("clients")
+}
+
+// ─── PROPERTIES ───────────────────────────────────────────────
+
+enum TenureType {
+  statutory_right_of_occupancy
+  customary_right_of_occupancy
+  leasehold
+  freehold
+  government_allocation
+  other
+}
+
+enum PropertyUse {
+  residential
+  commercial
+  industrial
+  agricultural
+  mixed_use
+  land
+}
+
+model Property {
+  id               String      @id @default(uuid())
+  firmId           String
+  firm             Firm        @relation(fields: [firmId], references: [id])
+  address          String      @db.VarChar(400)
+  city             String      @db.VarChar(100)
+  state            String      @db.VarChar(100)
+  localGovernment  String?     @db.VarChar(100)
+  propertyUse      PropertyUse
+  tenureType       TenureType
+  plotSize         Decimal?    @db.Decimal(14, 4)
+  plotSizeUnit     String?     @db.VarChar(20)
+  description      String?     @db.Text
+  latitude         Decimal?    @db.Decimal(10, 8)
+  longitude        Decimal?    @db.Decimal(11, 8)
+  createdById      String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  cases Case[]
+
+  @@index([firmId])
+  @@index([firmId, state, city])
+  @@map("properties")
+}
+
+// ─── CASES ────────────────────────────────────────────────────
+
+enum CaseStage {
+  enquiry_received
+  quote_issued
+  instruction_accepted
+  case_opened
+  inspection_scheduled
+  inspection_completed
+  comparable_analysis
+  draft_report
+  review
+  final_issued
+  invoice_sent
+  payment_received
+  archived
+}
+
+enum ValuationType {
+  market
+  rental
+  mortgage
+  insurance
+  probate
+  commercial
+  land
+}
+
+model CaseChecklistItem {
+  id          String    @id @default(uuid())
+  caseId      String
+  case        Case      @relation(fields: [caseId], references: [id])
+  label       String    @db.VarChar(300)
+  isChecked   Boolean   @default(false)
+  checkedById String?
+  checkedAt   DateTime?
+
+  @@index([caseId])
+  @@map("case_checklist_items")
+}
+
+model Case {
+  id                 String        @id @default(uuid())
+  firmId             String
+  firm               Firm          @relation(fields: [firmId], references: [id])
+  branchId           String?
+  branch             Branch?       @relation(fields: [branchId], references: [id])
+  reference          String        @unique @db.VarChar(30)
+  clientId           String
+  client             Client        @relation(fields: [clientId], references: [id])
+  propertyId         String
+  property           Property      @relation(fields: [propertyId], references: [id])
+  valuationType      ValuationType
+  valuationPurpose   String?       @db.VarChar(200)
+  assignedValuerId   String
+  assignedValuer     User          @relation("AssignedValuer", fields: [assignedValuerId], references: [id])
+  assignedReviewerId String?
+  assignedReviewer   User?         @relation("AssignedReviewer", fields: [assignedReviewerId], references: [id])
+  stage              CaseStage     @default(enquiry_received)
+  dueDate            DateTime?
+  feeAmount          Decimal?      @db.Decimal(14, 2)
+  feeCurrency        String        @default("NGN") @db.VarChar(5)
+  isOverdue          Boolean       @default(false)
+  internalNotes      String?       @db.Text
+  createdById        String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  checklistItems  CaseChecklistItem[]
+  inspection      Inspection?
+  caseComparables CaseComparable[]
+  analysis        ValuationAnalysis?
+  reports         Report[]
+  invoice         Invoice?
+  documents       Document[]
+
+  @@index([firmId])
+  @@index([firmId, stage])
+  @@index([firmId, assignedValuerId])
+  @@index([firmId, isOverdue])
+  @@map("cases")
+}
+
+// ─── INSPECTIONS ──────────────────────────────────────────────
+
+enum InspectionStatus {
+  draft
+  submitted
+}
+
+model Inspection {
+  id                  String          @id @default(uuid())
+  caseId              String          @unique
+  case                Case            @relation(fields: [caseId], references: [id])
+  firmId              String
+  inspectedById       String
+  inspector           User            @relation(fields: [inspectedById], references: [id])
+  status              InspectionStatus @default(draft)
+  inspectionDate      DateTime?
+  externalCondition   String?         @db.Text
+  internalCondition   String?         @db.Text
+  services            String?         @db.Text
+  conditionSummary    String?         @db.Text
+  locationDescription String?         @db.Text
+  occupancy           String?         @db.VarChar(100)
+  notes               String?         @db.Text
+  offlineDraft        Json?
+  submittedAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  media InspectionMedia[]
+
+  @@index([firmId])
+  @@map("inspections")
+}
+
+model InspectionMedia {
+  id           String     @id @default(uuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id])
+  s3Key        String     @db.VarChar(500)
+  caption      String?    @db.VarChar(300)
+  takenAt      DateTime?
+  sortOrder    Int        @default(0)
+
+  @@index([inspectionId])
+  @@map("inspection_media")
+}
+
+// ─── COMPARABLES ──────────────────────────────────────────────
+
+enum ComparableType {
+  sales
+  rental
+  land
+}
+
+model Comparable {
+  id               String         @id @default(uuid())
+  firmId           String
+  firm             Firm           @relation(fields: [firmId], references: [id])
+  comparableType   ComparableType
+  address          String         @db.VarChar(400)
+  city             String?        @db.VarChar(100)
+  state            String?        @db.VarChar(100)
+  propertyUse      String?        @db.VarChar(60)
+  tenureType       String?        @db.VarChar(60)
+  transactionDate  DateTime?
+  salePrice        Decimal?       @db.Decimal(18, 2)
+  rentalValue      Decimal?       @db.Decimal(18, 2)
+  plotSize         Decimal?       @db.Decimal(14, 4)
+  plotSizeUnit     String?        @db.VarChar(20)
+  buildingSize     Decimal?       @db.Decimal(14, 4)
+  buildingSizeUnit String?        @db.VarChar(20)
+  pricePerSqm      Decimal?       @db.Decimal(14, 2)
+  source           String?        @db.VarChar(200)
+  sourceContact    String?        @db.VarChar(200)
+  notes            String?        @db.Text
+  isVerified       Boolean        @default(false)
+  addedById        String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  caseComparables CaseComparable[]
+
+  @@index([firmId])
+  @@index([firmId, comparableType])
+  @@map("comparables")
+}
+
+model CaseComparable {
+  id           String     @id @default(uuid())
+  caseId       String
+  case         Case       @relation(fields: [caseId], references: [id])
+  comparableId String
+  comparable   Comparable @relation(fields: [comparableId], references: [id])
+  weight       Decimal?   @db.Decimal(5, 2)
+  addedById    String
+  createdAt    DateTime   @default(now())
+
+  @@unique([caseId, comparableId])
+  @@index([caseId])
+  @@index([comparableId])
+  @@map("case_comparables")
+}
+
+// ─── COMPARABLE IMPORT JOBS ────────────────────────────────────
+
+enum ImportJobStatus {
+  pending
+  processing
+  complete
+  partial_failure
+  failed
+}
+
+model ComparableImportJob {
+  id            String          @id @default(uuid())
+  firmId        String
+  firm          Firm            @relation(fields: [firmId], references: [id])
+  fileKey       String          @db.VarChar(500)
+  status        ImportJobStatus @default(pending)
+  importedCount Int             @default(0)
+  failedCount   Int             @default(0)
+  errors        Json            @default("[]")
+  createdById   String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([firmId])
+  @@index([firmId, status])
+  @@map("comparable_import_jobs")
+}
+
+// ─── VALUATION ANALYSIS ───────────────────────────────────────
+
+enum ValuationMethod {
+  sales_comparison
+  income_capitalisation
+  discounted_cash_flow
+  cost
+  profits
+  residual
+}
+
+enum BasisOfValue {
+  market_value
+  fair_value
+  investment_value
+  liquidation_value
+}
+
+enum AnalysisStatus {
+  in_progress
+  complete
+}
+
+model ValuationAnalysis {
+  id                 String          @id @default(uuid())
+  caseId             String          @unique
+  case               Case            @relation(fields: [caseId], references: [id])
+  firmId             String
+  method             ValuationMethod
+  basisOfValue       BasisOfValue
+  assumptions        Json            @default("[]")
+  specialAssumptions Json            @default("[]")
+  comparableGrid     Json            @default("{}")
+  concludedValue     Decimal?        @db.Decimal(18, 2)
+  valuationDate      DateTime?
+  status             AnalysisStatus  @default(in_progress)
+  createdById        String
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([firmId])
+  @@map("valuation_analyses")
+}
+
+// ─── REPORTS ──────────────────────────────────────────────────
+
+enum ReportStatus {
+  draft
+  submitted_for_review
+  approved
+  rejected
+  final
+}
+
+model ReportTemplate {
+  id                 String        @id @default(uuid())
+  firmId             String
+  firm               Firm          @relation(fields: [firmId], references: [id])
+  name               String        @db.VarChar(200)
+  valuationType      ValuationType
+  templateHtml       String        @db.Text
+  defaultAssumptions Json          @default("[]")
+  defaultDisclaimers Json          @default("[]")
+  isActive           Boolean       @default(true)
+  createdById        String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  reports Report[]
+
+  @@index([firmId])
+  @@map("report_templates")
+}
+
+model Report {
+  id           String       @id @default(uuid())
+  caseId       String
+  case         Case         @relation(fields: [caseId], references: [id])
+  firmId       String
+  templateId   String?
+  template     ReportTemplate? @relation(fields: [templateId], references: [id])
+  status       ReportStatus @default(draft)
+  version      Int          @default(1)
+  s3Key        String?      @db.VarChar(500)
+  generatedAt  DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+  createdById  String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  comments ReviewComment[]
+
+  @@index([firmId])
+  @@index([caseId])
+  @@map("reports")
+}
+
+enum ReviewCommentType {
+  blocking
+  suggestion
+  informational
+}
+
+model ReviewComment {
+  id           String            @id @default(uuid())
+  reportId     String
+  report       Report            @relation(fields: [reportId], references: [id])
+  firmId       String
+  authorId     String
+  type         ReviewCommentType
+  body         String            @db.Text
+  isResolved   Boolean           @default(false)
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime          @default(now())
+
+  @@index([reportId])
+  @@index([firmId])
+  @@map("review_comments")
+}
+
+// ─── INVOICES ─────────────────────────────────────────────────
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  partial
+  overdue
+  void
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  caseId        String        @unique
+  case          Case          @relation(fields: [caseId], references: [id])
+  firmId        String
+  firm          Firm          @relation(fields: [firmId], references: [id])
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  invoiceNumber String        @unique @db.VarChar(30)
+  status        InvoiceStatus @default(draft)
+  amount        Decimal       @db.Decimal(18, 2)
+  currency      String        @default("NGN") @db.VarChar(5)
+  taxRate       Decimal?      @db.Decimal(5, 4)
+  taxAmount     Decimal?      @db.Decimal(18, 2)
+  totalAmount   Decimal       @db.Decimal(18, 2)
+  dueDate       DateTime?
+  paidAt        DateTime?
+  notes         String?       @db.Text
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([firmId])
+  @@index([firmId, status])
+  @@map("invoices")
+}
+
+// ─── DOCUMENTS ────────────────────────────────────────────────
+
+model Document {
+  id          String   @id @default(uuid())
+  firmId      String
+  firm        Firm     @relation(fields: [firmId], references: [id])
+  caseId      String?
+  case        Case?    @relation(fields: [caseId], references: [id])
+  name        String   @db.VarChar(300)
+  s3Key       String   @db.VarChar(500)
+  mimeType    String   @db.VarChar(100)
+  sizeBytes   Int
+  uploadedById String
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([firmId])
+  @@index([caseId])
+  @@map("documents")
+}
+
+// ─── AUDIT LOGS ───────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  firmId     String
+  firm       Firm     @relation(fields: [firmId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(60)
+  entityId   String
+  before     Json?
+  after      Json?
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+
+  @@index([firmId, entityType, entityId])
+  @@index([firmId, userId])
+  @@map("audit_logs")
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────
+
+enum NotificationType {
+  case_assigned
+  inspection_due
+  review_requested
+  report_approved
+  report_rejected
+  invoice_sent
+  payment_received
+  case_overdue
+  comment_added
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  firmId     String
+  firm       Firm             @relation(fields: [firmId], references: [id])
+  userId     String
+  user       User             @relation(fields: [userId], references: [id])
+  type       NotificationType
+  title      String           @db.VarChar(300)
+  body       String?          @db.VarChar(500)
+  entityType String           @db.VarChar(60)
+  entityId   String
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([firmId, userId])
+  @@map("notifications")
+}

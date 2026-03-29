@@ -1,0 +1,51 @@
+{
+  "name": "@valuation-os/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@valuation-os/types": "workspace:*",
+    "@valuation-os/utils": "workspace:*",
+    "@valuation-os/api": "workspace:*",
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "jose": "^5.9.0",
+    "bcryptjs": "^2.4.3",
+    "zod": "^3.23.0",
+    "@prisma/client": "^5.22.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-table": "^8.20.0",
+    "react-hook-form": "^7.53.0",
+    "@hookform/resolvers": "^3.9.0",
+    "zustand": "^5.0.0",
+    "lucide-react": "^0.460.0",
+    "@upstash/redis": "^1.34.0",
+    "handlebars": "^4.7.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/bcryptjs": "^2.4.6",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.0"
+  }
+}

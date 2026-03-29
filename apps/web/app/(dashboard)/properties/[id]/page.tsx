@@ -1,0 +1,180 @@
+import { notFound, redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { prisma } from '@/lib/db/prisma'
+import { verifyAccessToken } from '@/lib/auth/session'
+import { Header } from '@/components/layout/header'
+import { StageBadge } from '@/components/cases/stage-badge'
+import { formatDate } from '@valuation-os/utils'
+import { MapPin } from 'lucide-react'
+import Link from 'next/link'
+import type { CaseStage } from '@valuation-os/types'
+
+function labelOf(s: string) {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  const cookieStore = await cookies()
+  const token = cookieStore.get('access_token')?.value
+  if (!token) redirect('/login')
+
+  const session = await verifyAccessToken(token).catch(() => null)
+  if (!session) redirect('/login')
+
+  const [user, property] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, firstName: true, lastName: true, role: true, email: true },
+    }),
+    prisma.property.findFirst({
+      where: { id, firmId: session.firmId },
+      include: {
+        cases: {
+          select: {
+            id: true, reference: true, stage: true, valuationType: true,
+            isOverdue: true, dueDate: true, createdAt: true,
+            client: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        _count: { select: { cases: true } },
+      },
+    }),
+  ])
+
+  if (!user) redirect('/login')
+  if (!property) notFound()
+
+  return (
+    <>
+      <Header user={user} title="Property" />
+      <div className="p-6 space-y-6 max-w-5xl">
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+          {/* Property details card */}
+          <div className="space-y-6">
+            <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-500" />
+                <h2 className="text-sm font-semibold text-gray-900">Property Details</h2>
+              </div>
+
+              <dl className="space-y-3 text-sm divide-y divide-gray-100">
+                <div className="pt-2 first:pt-0">
+                  <dt className="text-xs text-gray-500">Address</dt>
+                  <dd className="mt-0.5 font-medium text-gray-900">{property.address}</dd>
+                </div>
+                <div className="pt-2">
+                  <dt className="text-xs text-gray-500">City / LGA</dt>
+                  <dd className="mt-0.5 text-gray-700">
+                    {[property.city, property.localGovernment].filter(Boolean).join(' / ') || '—'}
+                  </dd>
+                </div>
+                <div className="pt-2">
+                  <dt className="text-xs text-gray-500">State</dt>
+                  <dd className="mt-0.5 text-gray-700">{property.state}</dd>
+                </div>
+                <div className="pt-2">
+                  <dt className="text-xs text-gray-500">Property Use</dt>
+                  <dd className="mt-0.5 text-gray-700">{labelOf(property.propertyUse)}</dd>
+                </div>
+                <div className="pt-2">
+                  <dt className="text-xs text-gray-500">Tenure Type</dt>
+                  <dd className="mt-0.5 text-gray-700">{labelOf(property.tenureType)}</dd>
+                </div>
+                {property.plotSize && (
+                  <div className="pt-2">
+                    <dt className="text-xs text-gray-500">Plot Size</dt>
+                    <dd className="mt-0.5 text-gray-700">
+                      {property.plotSize.toString()} {property.plotSizeUnit ?? 'sqm'}
+                    </dd>
+                  </div>
+                )}
+                <div className="pt-2">
+                  <dt className="text-xs text-gray-500">Total Cases</dt>
+                  <dd className="mt-0.5 font-semibold text-gray-900">{property._count.cases}</dd>
+                </div>
+                <div className="pt-2">
+                  <dt className="text-xs text-gray-500">Added</dt>
+                  <dd className="mt-0.5 text-gray-700">{formatDate(property.createdAt)}</dd>
+                </div>
+              </dl>
+
+              {property.description && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs text-gray-500 mb-1">Description</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{property.description}</p>
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Cases table */}
+          <div className="lg:col-span-2">
+            <section className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Cases ({property._count.cases})
+                </h2>
+                <Link href="/cases/new" className="text-xs font-medium text-blue-600 hover:text-blue-800">
+                  + New Case
+                </Link>
+              </div>
+
+              {property.cases.length === 0 ? (
+                <p className="px-5 py-10 text-center text-sm text-gray-400">No cases yet.</p>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['Reference', 'Client', 'Type', 'Stage', 'Due', ''].map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {property.cases.map((c: typeof property.cases[0]) => (
+                      <tr key={c.id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-sm font-medium text-gray-900">
+                          {c.reference}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          <Link href={`/clients/${c.client.id}`} className="hover:text-blue-600">
+                            {c.client.name}
+                          </Link>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm capitalize text-gray-600">
+                          {c.valuationType}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <StageBadge stage={c.stage as CaseStage} />
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                          {c.dueDate ? formatDate(c.dueDate) : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                          <Link href={`/cases/${c.id}`} className="text-blue-600 hover:text-blue-800 font-medium">
+                            View →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}

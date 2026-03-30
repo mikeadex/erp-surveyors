@@ -5,11 +5,17 @@ import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { z } from 'zod'
 
+const AssumptionSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().trim().min(1).max(1000),
+})
+
 const CreateAnalysisSchema = z.object({
   method: z.enum(['sales_comparison', 'income_capitalisation', 'discounted_cash_flow', 'cost', 'profits', 'residual']),
   basisOfValue: z.enum(['market_value', 'fair_value', 'investment_value', 'liquidation_value']),
-  assumptions: z.array(z.object({ id: z.string(), text: z.string() })).optional(),
-  specialAssumptions: z.array(z.object({ id: z.string(), text: z.string() })).optional(),
+  assumptions: z.array(AssumptionSchema).optional(),
+  specialAssumptions: z.array(AssumptionSchema).optional(),
+  commentary: z.string().max(12000).optional(),
   concludedValue: z.number().positive().optional(),
   valuationDate: z.string().datetime().optional(),
 })
@@ -61,6 +67,7 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         basisOfValue: body.basisOfValue,
         assumptions: body.assumptions ?? [],
         specialAssumptions: body.specialAssumptions ?? [],
+        ...(body.commentary !== undefined ? { commentary: body.commentary } : {}),
         createdById: req.session.userId,
         ...(body.concludedValue !== undefined ? { concludedValue: body.concludedValue } : {}),
         ...(body.valuationDate !== undefined ? { valuationDate: new Date(body.valuationDate) } : {}),
@@ -93,6 +100,7 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
     if (body.basisOfValue !== undefined) data.basisOfValue = body.basisOfValue
     if (body.assumptions !== undefined) data.assumptions = body.assumptions
     if (body.specialAssumptions !== undefined) data.specialAssumptions = body.specialAssumptions
+    if (body.commentary !== undefined) data.commentary = body.commentary
     if (body.comparableGrid !== undefined) data.comparableGrid = body.comparableGrid
     if (body.concludedValue !== undefined) data.concludedValue = body.concludedValue
     if (body.valuationDate !== undefined) data.valuationDate = new Date(body.valuationDate)
@@ -102,6 +110,27 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: data as any,
     })
+
+    if (
+      body.concludedValue !== undefined
+      && existing.concludedValue?.toString() !== updated.concludedValue?.toString()
+    ) {
+      await prisma.auditLog.create({
+        data: {
+          firmId: req.session.firmId,
+          userId: req.session.userId,
+          action: 'CONCLUDED_VALUE_CHANGED',
+          entityType: 'ValuationAnalysis',
+          entityId: updated.id,
+          before: {
+            concludedValue: existing.concludedValue?.toString() ?? null,
+          } as any,
+          after: {
+            concludedValue: updated.concludedValue?.toString() ?? null,
+          } as any,
+        },
+      })
+    }
 
     return ok(updated)
   } catch (err) {

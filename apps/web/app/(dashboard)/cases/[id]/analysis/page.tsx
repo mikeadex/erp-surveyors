@@ -29,8 +29,37 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
         id: true, reference: true, stage: true,
         property: { select: { address: true, city: true, state: true, propertyUse: true, tenureType: true } },
         analysis: true,
+        reports: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
         caseComparables: {
-          include: { comparable: true },
+          select: {
+            id: true,
+            weight: true,
+            relevanceScore: true,
+            adjustmentAmount: true,
+            adjustmentNote: true,
+            comparable: {
+              select: {
+                id: true,
+                comparableType: true,
+                address: true,
+                salePrice: true,
+                rentalValue: true,
+                propertyUse: true,
+                pricePerSqm: true,
+                transactionDate: true,
+                source: true,
+                isVerified: true,
+              },
+            },
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -87,6 +116,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
           analysis={caseRecord.analysis ?? null}
           comparables={caseRecord.caseComparables}
           suggestedComparables={suggestedComparables}
+          hasReports={caseRecord.reports.length > 0}
         />
       </div>
     </>

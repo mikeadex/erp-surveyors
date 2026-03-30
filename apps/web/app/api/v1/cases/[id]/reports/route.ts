@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
+import { renderReportDraft } from '@/lib/reports/report-renderer'
 
 export const GET = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -37,9 +38,91 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
     const caseRecord = await prisma.case.findFirst({
       where: { id, firmId: req.session.firmId },
       include: {
+        firm: {
+          select: {
+            name: true,
+            rcNumber: true,
+            esvarNumber: true,
+            address: true,
+            city: true,
+            state: true,
+            phone: true,
+            email: true,
+          },
+        },
+        branch: { select: { name: true } },
+        client: {
+          select: {
+            name: true,
+            type: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            state: true,
+            rcNumber: true,
+            contacts: {
+              orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
+              select: {
+                name: true,
+                email: true,
+                phone: true,
+                role: true,
+                isPrimary: true,
+              },
+            },
+          },
+        },
+        property: {
+          select: {
+            address: true,
+            city: true,
+            state: true,
+            localGovernment: true,
+            propertyUse: true,
+            tenureType: true,
+            plotSize: true,
+            plotSizeUnit: true,
+            description: true,
+          },
+        },
+        assignedValuer: { select: { firstName: true, lastName: true } },
+        assignedReviewer: { select: { firstName: true, lastName: true } },
         analysis: true,
-        inspection: true,
-        caseComparables: true,
+        inspection: {
+          include: {
+            media: { select: { id: true } },
+            inspector: { select: { firstName: true, lastName: true } },
+          },
+        },
+        caseComparables: {
+          include: {
+            comparable: {
+              select: {
+                comparableType: true,
+                address: true,
+                city: true,
+                state: true,
+                propertyUse: true,
+                transactionDate: true,
+                salePrice: true,
+                rentalValue: true,
+                pricePerSqm: true,
+                source: true,
+                isVerified: true,
+              },
+            },
+          },
+        },
+        invoice: {
+          select: {
+            invoiceNumber: true,
+            totalAmount: true,
+            currency: true,
+            status: true,
+            dueDate: true,
+          },
+        },
       },
     })
     if (!caseRecord) throw Errors.NOT_FOUND('Case')
@@ -65,6 +148,14 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
       orderBy: { createdAt: 'desc' },
     })
 
+    const renderedHtml = renderReportDraft({
+      caseRecord,
+      version: versionCount + 1,
+      templateName: template?.name ?? null,
+      templateHtml: template?.templateHtml ?? null,
+      templateDefaultDisclaimers: template?.defaultDisclaimers ?? null,
+    })
+
     const report = await prisma.report.create({
       data: {
         caseId: id,
@@ -72,6 +163,8 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         ...(template ? { templateId: template.id } : {}),
         version: versionCount + 1,
         status: 'draft',
+        renderedHtml,
+        generatedAt: new Date(),
         createdById: req.session.userId,
       },
     })

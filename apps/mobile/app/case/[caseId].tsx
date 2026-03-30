@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -54,6 +56,57 @@ interface DocumentDownloadResponse {
   mimeType: string
 }
 
+interface CaseComparablesResponse {
+  items: Array<{
+    id: string
+    comparableId: string
+    weight: string | number | null
+    relevanceScore: number | null
+    adjustmentAmount: string | number | null
+    adjustmentNote: string | null
+    comparable: {
+      id: string
+      comparableType: string
+      address: string
+      city: string | null
+      state: string | null
+      propertyUse: string | null
+      salePrice: string | number | null
+      rentalValue: string | number | null
+      pricePerSqm: string | number | null
+      transactionDate: string | null
+      source: string | null
+      isVerified: boolean
+    }
+  }>
+}
+
+interface ComparablesLibraryResponse {
+  items: Array<{
+    id: string
+    comparableType: string
+    address: string
+    city: string | null
+    state: string | null
+    salePrice: string | number | null
+    rentalValue: string | number | null
+    transactionDate: string | null
+    pricePerSqm: string | number | null
+    source: string | null
+    isVerified: boolean
+  }>
+}
+
+type QuickComparableForm = {
+  comparableType: 'sales' | 'rental' | 'land'
+  address: string
+  city: string
+  state: string
+  salePrice: string
+  rentalValue: string
+  source: string
+}
+
 function formatActionLabel(action: string) {
   return action.replace(/^CASE_/, '').replaceAll('_', ' ').toLowerCase()
 }
@@ -74,6 +127,22 @@ export default function MobileCaseDetailScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [creatingInspection, setCreatingInspection] = useState(false)
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null)
+  const [attachModalVisible, setAttachModalVisible] = useState(false)
+  const [quickCreateVisible, setQuickCreateVisible] = useState(false)
+  const [librarySearch, setLibrarySearch] = useState('')
+  const [libraryType, setLibraryType] = useState<'sales' | 'rental' | 'land' | 'all'>('all')
+  const [librarySort, setLibrarySort] = useState<'recent' | 'verified' | 'higher_value'>('recent')
+  const [attachingComparableId, setAttachingComparableId] = useState<string | null>(null)
+  const [creatingComparable, setCreatingComparable] = useState(false)
+  const [quickComparable, setQuickComparable] = useState<QuickComparableForm>({
+    comparableType: 'sales',
+    address: '',
+    city: '',
+    state: '',
+    salePrice: '',
+    rentalValue: '',
+    source: '',
+  })
   const [error, setError] = useState<string | null>(null)
 
   const casePath = useMemo(() => (caseId ? `/api/v1/cases/${caseId}` : null), [caseId])
@@ -90,9 +159,54 @@ export default function MobileCaseDetailScreen() {
     queryFn: () => apiGet<CaseActivityResponse>(`/api/v1/cases/${caseId}/activity`),
   })
 
+  const { data: caseComparables, refetch: refetchComparables } = useQuery({
+    queryKey: caseId ? queryKeys.comparables.byCase(caseId) : ['mobile-case-comparables-missing'],
+    enabled: Boolean(caseId),
+    queryFn: () => apiGet<CaseComparablesResponse>(`/api/v1/cases/${caseId}/comparables`),
+  })
+
+  const { data: libraryComparables, isFetching: isFetchingLibrary } = useQuery({
+    queryKey: caseId
+      ? ['mobile-comparables-library', caseId, librarySearch, libraryType]
+      : ['mobile-comparables-library-missing'],
+    enabled: Boolean(caseId) && attachModalVisible,
+    queryFn: () =>
+      apiGet<ComparablesLibraryResponse>('/api/v1/comparables', {
+        pageSize: 12,
+        ...(librarySearch.trim() ? { q: librarySearch.trim() } : {}),
+        ...(libraryType !== 'all' ? { comparableType: libraryType } : {}),
+      }),
+  })
+
+  const sortedLibraryComparables = useMemo(() => {
+    const items = [...(libraryComparables?.items ?? [])]
+
+    if (librarySort === 'verified') {
+      return items.sort((a, b) => Number(b.isVerified) - Number(a.isVerified))
+    }
+
+    if (librarySort === 'higher_value') {
+      return items.sort((a, b) => {
+        const aValue = Number(a.salePrice ?? a.rentalValue ?? 0)
+        const bValue = Number(b.salePrice ?? b.rentalValue ?? 0)
+        return bValue - aValue
+      })
+    }
+
+    return items.sort((a, b) => {
+      const aTime = a.transactionDate ? new Date(a.transactionDate).getTime() : 0
+      const bTime = b.transactionDate ? new Date(b.transactionDate).getTime() : 0
+      return bTime - aTime
+    })
+  }, [libraryComparables?.items, librarySort])
+
   async function onRefresh() {
     setRefreshing(true)
-    await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ['mobile-case-activity', caseId] })])
+    await Promise.all([
+      refetch(),
+      refetchComparables(),
+      queryClient.invalidateQueries({ queryKey: ['mobile-case-activity', caseId] }),
+    ])
     setRefreshing(false)
   }
 
@@ -138,6 +252,65 @@ export default function MobileCaseDetailScreen() {
     }
   }
 
+  async function attachComparable(comparableId: string) {
+    if (!caseId) return
+    setAttachingComparableId(comparableId)
+    setError(null)
+
+    try {
+      await apiPost(`/api/v1/cases/${caseId}/comparables`, { comparableId })
+      await refetchComparables()
+      setAttachModalVisible(false)
+      setLibrarySearch('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not attach this comparable.')
+    } finally {
+      setAttachingComparableId(null)
+    }
+  }
+
+  async function createAndAttachComparable() {
+    if (!caseId) return
+
+    setCreatingComparable(true)
+    setError(null)
+
+    try {
+      const created = await apiPost<{ id: string }>('/api/v1/comparables', {
+        comparableType: quickComparable.comparableType,
+        address: quickComparable.address,
+        city: quickComparable.city || undefined,
+        state: quickComparable.state || undefined,
+        salePrice:
+          quickComparable.comparableType !== 'rental' && quickComparable.salePrice
+            ? Number(quickComparable.salePrice)
+            : undefined,
+        rentalValue:
+          quickComparable.comparableType === 'rental' && quickComparable.rentalValue
+            ? Number(quickComparable.rentalValue)
+            : undefined,
+        source: quickComparable.source || undefined,
+      })
+
+      await apiPost(`/api/v1/cases/${caseId}/comparables`, { comparableId: created.id })
+      await refetchComparables()
+      setQuickCreateVisible(false)
+      setQuickComparable({
+        comparableType: 'sales',
+        address: '',
+        city: '',
+        state: '',
+        salePrice: '',
+        rentalValue: '',
+        source: '',
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create and attach the comparable.')
+    } finally {
+      setCreatingComparable(false)
+    }
+  }
+
   if (!caseId) {
     return (
       <View style={styles.centerState}>
@@ -147,183 +320,489 @@ export default function MobileCaseDetailScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Case',
-          headerStyle: { backgroundColor: '#ffffff' },
-          headerTitleStyle: { color: '#0f172a', fontWeight: '700' },
-        }}
-      />
+    <>
+      <ScrollView
+        style={styles.screen}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: 'Case',
+            headerStyle: { backgroundColor: '#ffffff' },
+            headerTitleStyle: { color: '#0f172a', fontWeight: '700' },
+          }}
+        />
 
-      <View style={styles.container}>
-        {isLoading || !data ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator color="#0b6a38" />
-            <Text style={styles.centerSubtitle}>Loading case…</Text>
+        <View style={styles.container}>
+          {isLoading || !data ? (
+            <View style={styles.centerState}>
+              <ActivityIndicator color="#0b6a38" />
+              <Text style={styles.centerSubtitle}>Loading case…</Text>
+            </View>
+          ) : (
+            <View style={styles.stack}>
+              <View style={styles.heroCard}>
+                <View style={styles.heroRow}>
+                  <View style={styles.heroBody}>
+                    <Text style={styles.reference}>{data.reference}</Text>
+                    <Text style={styles.clientName}>{data.client.name}</Text>
+                    <Text style={styles.propertyAddress}>{data.property.address}</Text>
+                  </View>
+                  <View style={[styles.stageBadge, data.isOverdue ? styles.stageBadgeOverdue : styles.stageBadgeDefault]}>
+                    <Text style={[styles.stageBadgeText, data.isOverdue ? styles.stageBadgeTextOverdue : styles.stageBadgeTextDefault]}>
+                      {getCaseStageLabel(data.stage as never)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.metaGrid}>
+                  <Meta label="Due" value={data.dueDate ? formatDate(data.dueDate) : 'Not set'} />
+                  <Meta label="Valuation" value={data.valuationType} />
+                  <Meta label="Purpose" value={data.purpose || 'Not set'} />
+                  <Meta label="Location" value={data.property.state} />
+                </View>
+              </View>
+
+              <Section title="Assignments" description="Who is handling the case right now.">
+                <Meta label="Valuer" value={data.assignedValuer ? `${data.assignedValuer.firstName} ${data.assignedValuer.lastName}` : 'Unassigned'} />
+                <Meta label="Reviewer" value={data.assignedReviewer ? `${data.assignedReviewer.firstName} ${data.assignedReviewer.lastName}` : 'Unassigned'} />
+              </Section>
+
+              <Section title="Client" description="Primary relationship details for site coordination.">
+                <Meta label="Client" value={data.client.name} />
+                <Meta label="Type" value={data.client.type} />
+                <View style={styles.actionPillRow}>
+                  {data.client.phone ? (
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => void openExternal(`tel:${data.client.phone}`)}
+                      style={styles.actionPill}
+                    >
+                      <Text style={styles.actionPillText}>Call client</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {data.client.email ? (
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => void openExternal(`mailto:${data.client.email}`)}
+                      style={styles.actionPill}
+                    >
+                      <Text style={styles.actionPillText}>Email client</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </Section>
+
+              <Section title="Property" description="Where the field work is happening.">
+                <Meta label="Address" value={data.property.address} />
+                <Meta
+                  label="Area"
+                  value={
+                    [data.property.localGovernment, data.property.state].filter(Boolean).join(', ') ||
+                    data.property.state
+                  }
+                />
+              </Section>
+
+              <Section title="Comparables" description="View valuation evidence and attach more from the field.">
+                {caseComparables?.items.length ? (
+                  <View style={styles.comparableList}>
+                    {caseComparables.items.map((item) => (
+                      <View key={item.id} style={styles.comparableCard}>
+                        <View style={styles.comparableHeader}>
+                          <View style={styles.comparableBody}>
+                            <Text style={styles.comparableAddress}>{item.comparable.address}</Text>
+                            <Text style={styles.comparableMeta}>
+                              {[item.comparable.city, item.comparable.state].filter(Boolean).join(', ') || 'No location'}
+                            </Text>
+                          </View>
+                          <View style={styles.comparableTypeBadge}>
+                            <Text style={styles.comparableTypeText}>{item.comparable.comparableType}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.comparablePillRow}>
+                          {item.comparable.isVerified ? (
+                            <View style={styles.verifiedPill}>
+                              <Text style={styles.verifiedPillText}>Verified</Text>
+                            </View>
+                          ) : null}
+                          {item.weight ? (
+                            <View style={styles.infoPill}>
+                              <Text style={styles.infoPillText}>Weight {item.weight}</Text>
+                            </View>
+                          ) : null}
+                          {item.relevanceScore ? (
+                            <View style={styles.infoPill}>
+                              <Text style={styles.infoPillText}>Relevance {item.relevanceScore}/5</Text>
+                            </View>
+                          ) : null}
+                        </View>
+
+                        <Meta
+                          label="Value"
+                          value={
+                            item.comparable.salePrice
+                              ? formatCurrency(Number(item.comparable.salePrice))
+                              : item.comparable.rentalValue
+                                ? `${formatCurrency(Number(item.comparable.rentalValue))}/yr`
+                                : 'Not recorded'
+                          }
+                        />
+
+                        <Link href={`/comparable/${item.comparable.id}`} asChild>
+                          <TouchableOpacity activeOpacity={0.88} style={styles.secondaryAction}>
+                            <Text style={styles.secondaryActionText}>Open record</Text>
+                          </TouchableOpacity>
+                        </Link>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>No comparables attached to this case yet.</Text>
+                )}
+
+                <View style={styles.actionPillRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => setAttachModalVisible(true)}
+                    style={styles.actionPill}
+                  >
+                    <Text style={styles.actionPillText}>Attach from library</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => setQuickCreateVisible(true)}
+                    style={styles.actionPill}
+                  >
+                    <Text style={styles.actionPillText}>Quick add comparable</Text>
+                  </TouchableOpacity>
+                </View>
+              </Section>
+
+              <Section title="Inspection" description="Open the field workspace or create a new draft.">
+                {data.inspection ? (
+                  <>
+                    <Meta label="Status" value={data.inspection.status === 'submitted' ? 'Submitted' : 'Draft'} />
+                    <Meta label="Inspection Date" value={data.inspection.inspectionDate ? formatDate(data.inspection.inspectionDate) : 'Not scheduled'} />
+                    <Meta label="Photos" value={`${data.inspection.media.length}`} />
+                    <Link href={`/inspection/${caseId}/${data.inspection.id}`} asChild>
+                      <TouchableOpacity activeOpacity={0.88} style={styles.primaryAction}>
+                        <Text style={styles.primaryActionText}>Open inspection workspace</Text>
+                      </TouchableOpacity>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.emptyText}>No inspection draft is attached to this case yet.</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => void createInspection()}
+                      disabled={creatingInspection}
+                      style={[styles.primaryAction, creatingInspection && styles.actionDisabled]}
+                    >
+                      <Text style={styles.primaryActionText}>
+                        {creatingInspection ? 'Creating inspection…' : 'Create inspection draft'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </Section>
+
+              <Section title="Commercials" description="Invoice and supporting file status.">
+                {data.invoice ? (
+                  <>
+                    <Meta label="Invoice" value={data.invoice.invoiceNumber} />
+                    <Meta label="Status" value={data.invoice.status.replaceAll('_', ' ')} />
+                    <Meta label="Amount" value={formatCurrency(data.invoice.totalAmount)} />
+                  </>
+                ) : (
+                  <Text style={styles.emptyText}>No invoice has been issued for this case yet.</Text>
+                )}
+
+                <View style={styles.documentSummary}>
+                  <Text style={styles.documentSummaryTitle}>Documents</Text>
+                  {data.documents.length ? (
+                    data.documents.slice(0, 4).map((document) => (
+                      <View key={document.id} style={styles.documentRow}>
+                        <View style={styles.documentBody}>
+                          <Text style={styles.documentName}>{document.name}</Text>
+                          <Text style={styles.documentMeta}>{formatDate(document.createdAt)} • {document.mimeType}</Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.88}
+                          onPress={() => void openDocument(document.id)}
+                          disabled={openingDocumentId === document.id}
+                          style={[styles.documentAction, openingDocumentId === document.id && styles.actionDisabled]}
+                        >
+                          <Text style={styles.documentActionText}>
+                            {openingDocumentId === document.id ? 'Opening…' : 'Open'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyText}>No supporting documents attached yet.</Text>
+                  )}
+                </View>
+              </Section>
+
+              <Section title="Recent Activity" description="Latest case workflow updates.">
+                {activity?.items.length ? (
+                  <View style={styles.timeline}>
+                    {activity.items.slice(0, 6).map((item) => (
+                      <View key={item.id} style={styles.timelineItem}>
+                        <Text style={styles.timelineAction}>{formatActionLabel(item.action)}</Text>
+                        <Text style={styles.timelineMeta}>
+                          {item.user ? `${item.user.firstName} ${item.user.lastName}` : 'System'} • {formatDate(item.createdAt)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>No recent activity for this case yet.</Text>
+                )}
+              </Section>
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <Modal
+        visible={attachModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAttachModalVisible(false)}
+      >
+        <View style={styles.modalScreen}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Attach Comparable</Text>
+            <TouchableOpacity onPress={() => setAttachModalVisible(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.stack}>
-            <View style={styles.heroCard}>
-              <View style={styles.heroRow}>
-                <View style={styles.heroBody}>
-                  <Text style={styles.reference}>{data.reference}</Text>
-                  <Text style={styles.clientName}>{data.client.name}</Text>
-                  <Text style={styles.propertyAddress}>{data.property.address}</Text>
-                </View>
-                <View style={[styles.stageBadge, data.isOverdue ? styles.stageBadgeOverdue : styles.stageBadgeDefault]}>
-                  <Text style={[styles.stageBadgeText, data.isOverdue ? styles.stageBadgeTextOverdue : styles.stageBadgeTextDefault]}>
-                    {getCaseStageLabel(data.stage as never)}
-                  </Text>
-                </View>
-              </View>
 
-              <View style={styles.metaGrid}>
-                <Meta label="Due" value={data.dueDate ? formatDate(data.dueDate) : 'Not set'} />
-                <Meta label="Valuation" value={data.valuationType} />
-                <Meta label="Purpose" value={data.purpose || 'Not set'} />
-                <Meta label="Location" value={data.property.state} />
-              </View>
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <TextInput
+              value={librarySearch}
+              onChangeText={setLibrarySearch}
+              placeholder="Search address, city, state, source"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+
+            <View style={styles.segmentRow}>
+              {(['all', 'sales', 'rental', 'land'] as const).map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => setLibraryType(value)}
+                  style={[
+                    styles.segmentButton,
+                    libraryType === value && styles.segmentButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      libraryType === value && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    {value === 'all' ? 'All' : value}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <Section title="Assignments" description="Who is handling the case right now.">
-              <Meta label="Valuer" value={data.assignedValuer ? `${data.assignedValuer.firstName} ${data.assignedValuer.lastName}` : 'Unassigned'} />
-              <Meta label="Reviewer" value={data.assignedReviewer ? `${data.assignedReviewer.firstName} ${data.assignedReviewer.lastName}` : 'Unassigned'} />
-            </Section>
+            <View style={styles.segmentRow}>
+              {([
+                { value: 'recent', label: 'Recent' },
+                { value: 'verified', label: 'Verified first' },
+                { value: 'higher_value', label: 'Higher value' },
+              ] as const).map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  onPress={() => setLibrarySort(item.value)}
+                  style={[
+                    styles.segmentButton,
+                    librarySort === item.value && styles.segmentButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      librarySort === item.value && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-            <Section title="Client" description="Primary relationship details for site coordination.">
-              <Meta label="Client" value={data.client.name} />
-              <Meta label="Type" value={data.client.type} />
-              <View style={styles.actionPillRow}>
-                {data.client.phone ? (
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    onPress={() => void openExternal(`tel:${data.client.phone}`)}
-                    style={styles.actionPill}
-                  >
-                    <Text style={styles.actionPillText}>Call client</Text>
-                  </TouchableOpacity>
-                ) : null}
-                {data.client.email ? (
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    onPress={() => void openExternal(`mailto:${data.client.email}`)}
-                    style={styles.actionPill}
-                  >
-                    <Text style={styles.actionPillText}>Email client</Text>
-                  </TouchableOpacity>
-                ) : null}
+            {isFetchingLibrary ? (
+              <View style={styles.centerState}>
+                <ActivityIndicator color="#0b6a38" />
+                <Text style={styles.centerSubtitle}>Loading comparables…</Text>
               </View>
-            </Section>
-
-            <Section title="Property" description="Where the field work is happening.">
-              <Meta label="Address" value={data.property.address} />
-              <Meta
-                label="Area"
-                value={
-                  [data.property.localGovernment, data.property.state].filter(Boolean).join(', ') ||
-                  data.property.state
-                }
-              />
-            </Section>
-
-            <Section title="Inspection" description="Open the field workspace or create a new draft.">
-              {data.inspection ? (
-                <>
-                  <Meta label="Status" value={data.inspection.status === 'submitted' ? 'Submitted' : 'Draft'} />
-                  <Meta label="Inspection Date" value={data.inspection.inspectionDate ? formatDate(data.inspection.inspectionDate) : 'Not scheduled'} />
-                  <Meta label="Photos" value={`${data.inspection.media.length}`} />
-                  <Link href={`/inspection/${caseId}/${data.inspection.id}`} asChild>
-                    <TouchableOpacity activeOpacity={0.88} style={styles.primaryAction}>
-                      <Text style={styles.primaryActionText}>Open inspection workspace</Text>
-                    </TouchableOpacity>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.emptyText}>No inspection draft is attached to this case yet.</Text>
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    onPress={() => void createInspection()}
-                    disabled={creatingInspection}
-                    style={[styles.primaryAction, creatingInspection && styles.actionDisabled]}
-                  >
-                    <Text style={styles.primaryActionText}>
-                      {creatingInspection ? 'Creating inspection…' : 'Create inspection draft'}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </Section>
-
-            <Section title="Commercials" description="Invoice and supporting file status.">
-              {data.invoice ? (
-                <>
-                  <Meta label="Invoice" value={data.invoice.invoiceNumber} />
-                  <Meta label="Status" value={data.invoice.status.replaceAll('_', ' ')} />
-                  <Meta label="Amount" value={formatCurrency(data.invoice.totalAmount)} />
-                </>
-              ) : (
-                <Text style={styles.emptyText}>No invoice has been issued for this case yet.</Text>
-              )}
-
-              <View style={styles.documentSummary}>
-                <Text style={styles.documentSummaryTitle}>Documents</Text>
-                {data.documents.length ? (
-                  data.documents.slice(0, 4).map((document) => (
-                    <View key={document.id} style={styles.documentRow}>
-                      <View style={styles.documentBody}>
-                        <Text style={styles.documentName}>{document.name}</Text>
-                        <Text style={styles.documentMeta}>{formatDate(document.createdAt)} • {document.mimeType}</Text>
-                      </View>
-                      <TouchableOpacity
-                        activeOpacity={0.88}
-                        onPress={() => void openDocument(document.id)}
-                        disabled={openingDocumentId === document.id}
-                        style={[styles.documentAction, openingDocumentId === document.id && styles.actionDisabled]}
-                      >
-                        <Text style={styles.documentActionText}>
-                          {openingDocumentId === document.id ? 'Opening…' : 'Open'}
+            ) : sortedLibraryComparables.length ? (
+              <View style={styles.comparableList}>
+                {sortedLibraryComparables.map((item) => (
+                  <View key={item.id} style={styles.comparableCard}>
+                    <View style={styles.comparableHeader}>
+                      <View style={styles.comparableBody}>
+                        <Text style={styles.comparableAddress}>{item.address}</Text>
+                        <Text style={styles.comparableMeta}>
+                          {[item.city, item.state].filter(Boolean).join(', ') || 'No location'}
                         </Text>
+                      </View>
+                      <View style={styles.comparableTypeBadge}>
+                        <Text style={styles.comparableTypeText}>{item.comparableType}</Text>
+                      </View>
+                    </View>
+
+                    <Meta
+                      label="Value"
+                      value={
+                        item.salePrice
+                          ? formatCurrency(Number(item.salePrice))
+                          : item.rentalValue
+                            ? `${formatCurrency(Number(item.rentalValue))}/yr`
+                            : 'Not recorded'
+                      }
+                    />
+
+                    <Link href={`/comparable/${item.id}`} asChild>
+                      <TouchableOpacity activeOpacity={0.88} style={styles.secondaryAction}>
+                        <Text style={styles.secondaryActionText}>Open record</Text>
                       </TouchableOpacity>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.emptyText}>No supporting documents attached yet.</Text>
-                )}
-              </View>
-            </Section>
+                    </Link>
 
-            <Section title="Recent Activity" description="Latest case workflow updates.">
-              {activity?.items.length ? (
-                <View style={styles.timeline}>
-                  {activity.items.slice(0, 6).map((item) => (
-                    <View key={item.id} style={styles.timelineItem}>
-                      <Text style={styles.timelineAction}>{formatActionLabel(item.action)}</Text>
-                      <Text style={styles.timelineMeta}>
-                        {item.user ? `${item.user.firstName} ${item.user.lastName}` : 'System'} • {formatDate(item.createdAt)}
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => void attachComparable(item.id)}
+                      disabled={attachingComparableId === item.id}
+                      style={[styles.primaryAction, attachingComparableId === item.id && styles.actionDisabled]}
+                    >
+                      <Text style={styles.primaryActionText}>
+                        {attachingComparableId === item.id ? 'Attaching…' : 'Attach comparable'}
                       </Text>
-                    </View>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.emptyText}>No recent activity for this case yet.</Text>
-              )}
-            </Section>
-
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
-            ) : null}
+            ) : (
+              <Text style={styles.emptyText}>No matching comparables found in the library.</Text>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={quickCreateVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setQuickCreateVisible(false)}
+      >
+        <View style={styles.modalScreen}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Quick Add Comparable</Text>
+            <TouchableOpacity onPress={() => setQuickCreateVisible(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
-    </ScrollView>
+
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <View style={styles.segmentRow}>
+              {(['sales', 'rental', 'land'] as const).map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => setQuickComparable((current) => ({ ...current, comparableType: value }))}
+                  style={[
+                    styles.segmentButton,
+                    quickComparable.comparableType === value && styles.segmentButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      quickComparable.comparableType === value && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    {value}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              value={quickComparable.address}
+              onChangeText={(value) => setQuickComparable((current) => ({ ...current, address: value }))}
+              placeholder="Address"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+            <TextInput
+              value={quickComparable.city}
+              onChangeText={(value) => setQuickComparable((current) => ({ ...current, city: value }))}
+              placeholder="City"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+            <TextInput
+              value={quickComparable.state}
+              onChangeText={(value) => setQuickComparable((current) => ({ ...current, state: value }))}
+              placeholder="State"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+            {quickComparable.comparableType === 'rental' ? (
+              <TextInput
+                value={quickComparable.rentalValue}
+                onChangeText={(value) => setQuickComparable((current) => ({ ...current, rentalValue: value }))}
+                placeholder="Annual rental value"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                style={styles.input}
+              />
+            ) : (
+              <TextInput
+                value={quickComparable.salePrice}
+                onChangeText={(value) => setQuickComparable((current) => ({ ...current, salePrice: value }))}
+                placeholder="Sale price"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                style={styles.input}
+              />
+            )}
+            <TextInput
+              value={quickComparable.source}
+              onChangeText={(value) => setQuickComparable((current) => ({ ...current, source: value }))}
+              placeholder="Source"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => void createAndAttachComparable()}
+              disabled={creatingComparable}
+              style={[styles.primaryAction, creatingComparable && styles.actionDisabled]}
+            >
+              <Text style={styles.primaryActionText}>
+                {creatingComparable ? 'Saving comparable…' : 'Create and attach'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   )
 }
 
@@ -479,6 +958,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  secondaryAction: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#dbe2ea',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  secondaryActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
   actionPillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -497,6 +990,75 @@ const styles = StyleSheet.create({
   },
   actionDisabled: {
     opacity: 0.6,
+  },
+  comparableList: {
+    gap: 10,
+  },
+  comparableCard: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 18,
+    backgroundColor: '#f8fafc',
+    padding: 14,
+    gap: 10,
+  },
+  comparableHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  comparableBody: {
+    flex: 1,
+    gap: 4,
+  },
+  comparableAddress: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  comparableMeta: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  comparableTypeBadge: {
+    borderRadius: 999,
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  comparableTypeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+    textTransform: 'capitalize',
+  },
+  comparablePillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  verifiedPill: {
+    borderRadius: 999,
+    backgroundColor: '#ecfdf3',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  verifiedPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  infoPill: {
+    borderRadius: 999,
+    backgroundColor: '#e2e8f0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  infoPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
   },
   documentSummary: {
     marginTop: 6,
@@ -563,6 +1125,70 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: '#64748b',
+  },
+  modalScreen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  modalClose: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0b6a38',
+  },
+  modalContent: {
+    padding: 16,
+    gap: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#dbe2ea',
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  segmentButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#dbe2ea',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  segmentButtonActive: {
+    backgroundColor: '#0b6a38',
+    borderColor: '#0b6a38',
+  },
+  segmentButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    textTransform: 'capitalize',
+  },
+  segmentButtonTextActive: {
+    color: '#ffffff',
   },
   errorBox: {
     borderRadius: 18,

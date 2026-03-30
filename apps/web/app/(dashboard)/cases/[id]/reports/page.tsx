@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { verifyAccessToken } from '@/lib/auth/session'
 import { Header } from '@/components/layout/header'
+import { GenerateReportButton } from '@/components/reports/generate-report-button'
 import Link from 'next/link'
 import { ArrowLeft, FileText, CheckCircle, XCircle, Clock, AlertCircle, type LucideIcon } from 'lucide-react'
 
@@ -59,14 +60,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to case
           </Link>
-          <form action={`/api/v1/cases/${caseId}/reports`} method="POST">
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              Generate New Version
-            </button>
-          </form>
+          <GenerateReportButton caseId={caseId} />
         </div>
 
         {caseRecord.reports.length === 0 ? (

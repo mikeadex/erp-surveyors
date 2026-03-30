@@ -1,9 +1,19 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { FileText, ShieldCheck, Layers3, Clock3 } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import { verifyAccessToken } from '@/lib/auth/session'
 import { Header } from '@/components/layout/header'
-import { FileText, BarChart3, TrendingUp, Clock } from 'lucide-react'
+import { ReportTemplateManager } from '@/components/reports/report-template-manager'
+
+function asTemplateItems(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is string | { id?: string; text?: string } =>
+          typeof item === 'string' || (!!item && typeof item === 'object'),
+      )
+    : []
+}
 
 export default async function ReportsPage() {
   const cookieStore = await cookies()
@@ -13,71 +23,137 @@ export default async function ReportsPage() {
   const session = await verifyAccessToken(token).catch(() => null)
   if (!session) redirect('/login')
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, firstName: true, lastName: true, role: true, email: true },
-  })
+  const [user, templates, reportSummary] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, firstName: true, lastName: true, role: true, email: true },
+    }),
+    prisma.reportTemplate.findMany({
+      where: { firmId: session.firmId },
+      orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }],
+    }),
+    prisma.report.groupBy({
+      by: ['status'],
+      where: { firmId: session.firmId },
+      _count: true,
+    }),
+  ])
+
   if (!user) redirect('/login')
 
-  const REPORT_TYPES = [
-    {
-      icon: FileText,
-      title: 'Valuation Report',
-      description: 'Generate a full valuation report for any case in final issued stage.',
-      color: 'text-blue-600 bg-blue-50',
-      available: false,
-    },
-    {
-      icon: BarChart3,
-      title: 'Portfolio Summary',
-      description: 'Aggregated view of all active cases, stages, and fee totals.',
-      color: 'text-purple-600 bg-purple-50',
-      available: false,
-    },
-    {
-      icon: TrendingUp,
-      title: 'Comparable Market Analysis',
-      description: 'Statistical summary of comparable sales and rentals by area.',
-      color: 'text-green-600 bg-green-50',
-      available: false,
-    },
-    {
-      icon: Clock,
-      title: 'Turnaround Time Report',
-      description: 'Average time per stage across all cases in a date range.',
-      color: 'text-orange-600 bg-orange-50',
-      available: false,
-    },
-  ]
+  const summaryMap = Object.fromEntries(
+    reportSummary.map((entry) => [entry.status, entry._count]),
+  ) as Record<string, number>
 
   return (
     <>
       <Header user={user} title="Reports" />
-      <div className="p-6 space-y-6 max-w-4xl">
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
-          <p className="text-sm text-blue-700 font-medium">Reports are coming soon</p>
-          <p className="text-xs text-blue-600 mt-0.5">
-            Automated report generation will be available in the next release.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {REPORT_TYPES.map(({ icon: Icon, title, description, color }) => (
-            <div
-              key={title}
-              className="rounded-xl border border-gray-200 bg-white p-5 opacity-60 cursor-not-allowed"
-            >
-              <div className={`mb-3 inline-flex rounded-lg p-2.5 ${color}`}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-              <p className="mt-1 text-xs text-gray-500">{description}</p>
-              <span className="mt-3 inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
-                Coming soon
-              </span>
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+        <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.28)] sm:p-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
+              Reporting Hub
+            </p>
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+                Control report templates, review flow, and output readiness.
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                Reports are now driven from completed case analysis and inspection data. Use this
+                space to manage firm templates, monitor draft volume, and keep final issue aligned
+                with your valuation workflow.
+              </p>
             </div>
-          ))}
-        </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    Templates
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                    {templates.length}
+                  </p>
+                </div>
+                <span className="inline-flex rounded-2xl bg-slate-100 p-3 text-slate-500">
+                  <Layers3 className="h-5 w-5" />
+                </span>
+              </div>
+              <p className="mt-4 text-sm text-slate-500">
+                Firm-specific template profiles available for new report generations.
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    Drafts
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                    {summaryMap.draft ?? 0}
+                  </p>
+                </div>
+                <span className="inline-flex rounded-2xl bg-slate-100 p-3 text-slate-500">
+                  <FileText className="h-5 w-5" />
+                </span>
+              </div>
+              <p className="mt-4 text-sm text-slate-500">
+                Generated outputs still being refined before review.
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    In Review
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                    {summaryMap.submitted_for_review ?? 0}
+                  </p>
+                </div>
+                <span className="inline-flex rounded-2xl bg-slate-100 p-3 text-slate-500">
+                  <Clock3 className="h-5 w-5" />
+                </span>
+              </div>
+              <p className="mt-4 text-sm text-slate-500">
+                Report versions currently waiting on reviewer sign-off.
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-brand-100 bg-brand-50/50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-700/70">
+                    Final
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-brand-900">
+                    {summaryMap.final ?? 0}
+                  </p>
+                </div>
+                <span className="inline-flex rounded-2xl bg-white/70 p-3 text-brand-700">
+                  <ShieldCheck className="h-5 w-5" />
+                </span>
+              </div>
+              <p className="mt-4 text-sm text-brand-800/75">
+                Reports approved, issued, and ready for client-facing delivery.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <ReportTemplateManager
+          templates={templates.map((template) => ({
+            ...template,
+            updatedAt: template.updatedAt.toISOString(),
+            defaultAssumptions: asTemplateItems(template.defaultAssumptions),
+            defaultDisclaimers: asTemplateItems(template.defaultDisclaimers),
+          }))}
+          canManage={user.role === 'managing_partner' || user.role === 'admin'}
+        />
       </div>
     </>
   )

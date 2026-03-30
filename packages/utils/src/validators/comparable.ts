@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+const optionalComparableDate = z
+  .string()
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), 'Invalid transaction date')
+  .optional()
+
 export const CreateComparableSchema = z.object({
   comparableType: z.enum(['sales', 'rental', 'land']),
   address: z.string().min(5).max(400),
@@ -7,7 +12,7 @@ export const CreateComparableSchema = z.object({
   state: z.string().max(100).optional(),
   propertyUse: z.string().max(60).optional(),
   tenureType: z.string().max(60).optional(),
-  transactionDate: z.string().datetime().optional(),
+  transactionDate: optionalComparableDate,
   salePrice: z.number().positive().optional(),
   rentalValue: z.number().positive().optional(),
   plotSize: z.number().positive().optional(),
@@ -26,6 +31,9 @@ export const UpdateComparableSchema = CreateComparableSchema.partial().extend({
 export const LinkComparableSchema = z.object({
   comparableId: z.string().uuid(),
   weight: z.number().min(0).max(100).optional(),
+  relevanceScore: z.number().int().min(1).max(5).optional(),
+  adjustmentAmount: z.number().optional(),
+  adjustmentNote: z.string().max(2000).optional(),
 })
 
 export type CreateComparableInput = z.infer<typeof CreateComparableSchema>

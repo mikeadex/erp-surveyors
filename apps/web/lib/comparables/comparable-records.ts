@@ -6,6 +6,7 @@ type ComparablePayload = {
   state?: string | undefined
   propertyUse?: string | undefined
   tenureType?: string | undefined
+  transactionDate?: string | undefined
   plotSize?: number | undefined
   plotSizeUnit?: string | undefined
   buildingSize?: number | undefined
@@ -79,6 +80,11 @@ export function normalizeComparablePayload<T extends ComparablePayload>(payload:
   if ('state' in normalized) normalized.state = normalizeComparableText(payload.state)
   if ('propertyUse' in normalized) normalized.propertyUse = normalizeComparableText(payload.propertyUse)
   if ('tenureType' in normalized) normalized.tenureType = normalizeComparableText(payload.tenureType)
+  if ('transactionDate' in normalized) {
+    normalized.transactionDate = payload.transactionDate
+      ? new Date(payload.transactionDate).toISOString()
+      : undefined
+  }
   if ('source' in normalized) normalized.source = normalizeComparableText(payload.source)
   if ('sourceContact' in normalized) normalized.sourceContact = normalizeComparableText(payload.sourceContact)
   if ('notes' in normalized) normalized.notes = normalizeComparableText(payload.notes)

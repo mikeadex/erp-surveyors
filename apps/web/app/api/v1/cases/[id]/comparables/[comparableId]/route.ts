@@ -7,6 +7,9 @@ import { z } from 'zod'
 
 const UpdateSchema = z.object({
   weight: z.number().optional(),
+  relevanceScore: z.number().int().min(1).max(5).optional(),
+  adjustmentAmount: z.number().optional(),
+  adjustmentNote: z.string().max(2000).optional(),
 })
 
 export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
@@ -27,11 +30,33 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
     })
     if (!existing) throw Errors.NOT_FOUND('Comparable link')
 
-    const data = Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined))
+    const data = Object.fromEntries(
+      Object.entries(body).filter(([key, value]) => key !== 'adjustmentNote' && value !== undefined),
+    )
     const updated = await prisma.caseComparable.update({
       where: { id: existing.id },
-      data,
-      include: { comparable: true },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: {
+        ...data,
+        ...(body.adjustmentNote !== undefined ? { adjustmentNote: body.adjustmentNote || null } : {}),
+      } as any,
+      include: {
+        comparable: {
+          select: {
+            id: true,
+            comparableType: true,
+            address: true,
+            city: true,
+            state: true,
+            propertyUse: true,
+            salePrice: true,
+            rentalValue: true,
+            pricePerSqm: true,
+            source: true,
+            isVerified: true,
+          },
+        },
+      },
     })
 
     return ok(updated)

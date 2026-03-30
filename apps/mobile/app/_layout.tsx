@@ -92,6 +92,10 @@ export default function RootLayout() {
           name="case/[caseId]"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="comparable/[comparableId]"
+          options={{ headerShown: false }}
+        />
       </Stack>
       {!storageReady ? (
         <View style={styles.loadingOverlay}>

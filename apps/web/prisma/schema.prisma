@@ -397,6 +397,9 @@ model CaseComparable {
   comparableId String
   comparable   Comparable @relation(fields: [comparableId], references: [id])
   weight       Decimal?   @db.Decimal(5, 2)
+  relevanceScore Int?
+  adjustmentAmount Decimal? @db.Decimal(18, 2)
+  adjustmentNote String? @db.Text
   addedById    String
   createdAt    DateTime   @default(now())
 
@@ -467,6 +470,7 @@ model ValuationAnalysis {
   assumptions        Json            @default("[]")
   specialAssumptions Json            @default("[]")
   comparableGrid     Json            @default("{}")
+  commentary         String?         @db.Text
   concludedValue     Decimal?        @db.Decimal(18, 2)
   valuationDate      DateTime?
   status             AnalysisStatus  @default(in_progress)
@@ -517,6 +521,7 @@ model Report {
   template     ReportTemplate? @relation(fields: [templateId], references: [id])
   status       ReportStatus @default(draft)
   version      Int          @default(1)
+  renderedHtml String?      @db.Text
   s3Key        String?      @db.VarChar(500)
   generatedAt  DateTime?
   approvedById String?

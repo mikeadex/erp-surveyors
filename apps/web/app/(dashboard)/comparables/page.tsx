@@ -11,6 +11,7 @@ import { ComparablesFiltersBar } from '@/components/comparables/comparables-filt
 import { formatDate, formatCurrency } from '@valuation-os/utils'
 import { buildComparableSearchWhere } from '@/lib/comparables/comparable-records'
 import { CreateComparableModalTrigger } from '@/components/comparables/create-comparable-modal-trigger'
+import { ImportComparablesModalTrigger } from '@/components/comparables/import-comparables-modal-trigger'
 import { richTextToPlainText } from '@/lib/editor/rich-text'
 
 interface SearchParams {
@@ -67,6 +68,21 @@ export default async function ComparablesPage({
     prisma.comparable.count({ where }),
   ])
 
+  const importJobs = await prisma.comparableImportJob.findMany({
+    where: { firmId: session.firmId },
+    select: {
+      id: true,
+      fileKey: true,
+      status: true,
+      importedCount: true,
+      failedCount: true,
+      errors: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 3,
+  })
+
   const totalPages = Math.ceil(total / pageSize)
 
   const TYPE_LABELS: Record<string, string> = {
@@ -92,7 +108,10 @@ export default async function ComparablesPage({
                 Search the evidence bank by address, type, location, and source while keeping the registry experience aligned with the calmer operating shell.
               </p>
             </div>
-            <CreateComparableModalTrigger />
+            <div className="flex flex-wrap items-center gap-3">
+              <ImportComparablesModalTrigger />
+              <CreateComparableModalTrigger />
+            </div>
           </div>
         </section>
 
@@ -102,9 +121,87 @@ export default async function ComparablesPage({
           state={params.state}
         />
 
+        {importJobs.length > 0 ? (
+          <section className="surface-card rounded-[28px] p-5 lg:p-6">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Recent Imports
+              </p>
+              <h3 className="mt-2 text-lg font-semibold text-slate-950">
+                Review the latest comparable import jobs.
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Each job keeps imported counts and row-level failures so the team can correct only the affected rows.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              {importJobs.map((job) => {
+                const errors = Array.isArray(job.errors)
+                  ? (job.errors as Array<{ row: number; error: string }>)
+                  : []
+
+                return (
+                  <div
+                    key={job.id}
+                    className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {job.fileKey}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+                          {job.status.replace(/_/g, ' ')}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
+                        {job.importedCount} ok
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+                      <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">
+                        {job.failedCount} failed
+                      </span>
+                      <span>{formatDate(job.createdAt)}</span>
+                    </div>
+
+                    {errors[0] ? (
+                      <div className="mt-4 rounded-2xl border border-red-100 bg-white px-3 py-2.5 text-xs leading-5 text-slate-600">
+                        <span className="font-semibold text-red-600">Row {errors[0].row}</span>
+                        <span> — {errors[0].error}</span>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-2xl border border-dashed border-slate-200 px-3 py-2.5 text-xs text-slate-400">
+                        No row errors recorded.
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
+
         {items.length === 0 ? (
-          <div className="surface-card rounded-[28px] p-12 text-center">
-            <p className="text-sm text-slate-500">No comparables found.</p>
+          <div className="surface-card rounded-[28px] p-8 text-center lg:p-12">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Empty Library
+            </p>
+            <h3 className="mt-3 text-xl font-semibold text-slate-950">
+              Start the evidence bank by importing comparables or adding one manually.
+            </h3>
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+              CSV import is the fastest way to bring in a firm library, especially when you already have historic market evidence in spreadsheets.
+            </p>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <ImportComparablesModalTrigger
+                label="Import Comparables"
+                buttonClassName="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_-20px_rgba(11,106,56,0.6)] transition-colors hover:bg-brand-800"
+              />
+              <CreateComparableModalTrigger />
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

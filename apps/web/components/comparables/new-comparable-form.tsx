@@ -44,7 +44,12 @@ export function NewComparableForm({ onCancel }: { onCancel?: () => void } = {}) 
     const res = await fetch('/api/v1/comparables', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        transactionDate: data.transactionDate
+          ? new Date(data.transactionDate).toISOString()
+          : undefined,
+      }),
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -84,9 +89,10 @@ export function NewComparableForm({ onCancel }: { onCancel?: () => void } = {}) 
             <input
               {...register('transactionDate')}
               id="transactionDate"
-              type="datetime-local"
+              type="date"
               className={inputClassName}
             />
+            {errors.transactionDate && <p className="mt-1 text-xs text-red-600">{errors.transactionDate.message}</p>}
           </div>
 
           <div className="sm:col-span-2">

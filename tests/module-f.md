@@ -112,3 +112,32 @@ curl -b cookies.txt -X PATCH http://localhost:3000/api/v1/cases/<CASE_ID>/compar
 curl -b cookies.txt -X DELETE http://localhost:3000/api/v1/cases/<CASE_ID>/comparables/<CASE_COMP_ID>
 ```
 **Expected:** `200` — comparable detached.
+
+---
+
+## 11. Import Comparables CSV
+
+Create a file named `comparables-import.csv`:
+
+```csv
+comparableType,address,city,state,propertyUse,tenureType,transactionDate,salePrice,rentalValue,plotSize,plotSizeUnit,buildingSize,buildingSizeUnit,source,sourceContact,notes,isVerified
+sales,"5 Kofo Abayomi Street",Lagos,Lagos,residential,leasehold,2025-11-01,85000000,,400,sqm,250,sqm,Field survey,Agent A,"Verified by firm agent",true
+rental,"12 Ozumba Mbadiwe Avenue",Lagos,Lagos,commercial,,2025-10-14,,4500000,,,180,sqm,Agent referral,Source desk,"Annual rental evidence",false
+```
+
+Then import it:
+
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/v1/comparables/import \
+  -F "file=@comparables-import.csv"
+```
+
+**Expected:** `201` with a `job` payload including `status`, `importedCount`, `failedCount`, and row errors if any rows failed.
+
+## 12. Fetch Import Job Status
+
+```bash
+curl -b cookies.txt http://localhost:3000/api/v1/comparables/import/<JOB_ID>
+```
+
+**Expected:** `200` with the saved import job result for that firm.

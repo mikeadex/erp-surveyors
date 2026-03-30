@@ -26,6 +26,7 @@ export interface ValuationAnalysis {
   assumptions: ValuationAssumption[]
   specialAssumptions: ValuationAssumption[]
   comparableGrid: Record<string, unknown>
+  commentary: string | null
   concludedValue: string | null
   valuationDate: string | null
   status: 'in_progress' | 'complete'
@@ -54,6 +55,7 @@ export interface Report {
   templateId: string | null
   status: ReportStatus
   version: number
+  renderedHtml: string | null
   s3Key: string | null
   generatedAt: string | null
   approvedById: string | null

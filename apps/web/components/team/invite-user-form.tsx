@@ -1,13 +1,14 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { InviteUserSchema, type InviteUserInput } from '@valuation-os/utils'
-import { useState } from 'react'
-import { Loader2, X } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { ROLE_LABELS } from '@valuation-os/utils'
 import type { UserRole } from '@valuation-os/types'
+import { ModalShell } from '@/components/ui/modal-shell'
 
 interface Branch {
   id: string
@@ -20,6 +21,12 @@ interface InviteUserFormProps {
 }
 
 const ROLES = Object.keys(ROLE_LABELS) as UserRole[]
+const sectionClassName = 'rounded-[24px] border border-slate-200 bg-slate-50/60 p-5 space-y-4'
+const inputClassName =
+  'block w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100 disabled:text-slate-500'
+const labelClassName = 'mb-1 block text-xs font-medium text-slate-700'
+const secondaryButtonClassName =
+  'rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50'
 
 export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
   const router = useRouter()
@@ -36,7 +43,19 @@ export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
     resolver: zodResolver(InviteUserSchema),
   })
   const selectedRole = watch('role')
+  const selectedBranchId = watch('branchId')
   const requiresBranch = selectedRole && selectedRole !== 'managing_partner'
+
+  useEffect(() => {
+    if (selectedRole === 'managing_partner') {
+      setValue('branchId', undefined)
+      return
+    }
+
+    if (!selectedBranchId && branches.length === 1) {
+      setValue('branchId', branches[0]?.id)
+    }
+  }, [branches, selectedBranchId, selectedRole, setValue])
 
   async function onSubmit(data: InviteUserInput) {
     setErrorMsg(null)
@@ -66,44 +85,48 @@ export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-gray-900">Invite Team Member</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-4 w-4" />
-          </button>
+    <ModalShell
+      title="Invite Team Member"
+      description="Add a new team member with the right role and branch ownership."
+      onClose={onClose}
+      widthClassName="max-w-3xl"
+    >
+      {success ? (
+        <div className="py-6 text-center">
+          <p className="text-sm font-medium text-brand-700">Invitation sent!</p>
+          <p className="mt-1 text-xs text-slate-500">The user will receive a password reset email.</p>
         </div>
-
-        {success ? (
-          <div className="px-5 py-10 text-center">
-            <p className="text-sm font-medium text-green-700">Invitation sent!</p>
-            <p className="mt-1 text-xs text-gray-500">The user will receive a password reset email.</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="px-5 py-5 space-y-4">
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <section className={sectionClassName}>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Member Details</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Capture the person’s identity before setting access and branch ownership.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="firstName" className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="firstName" className={labelClassName}>
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   {...register('firstName')}
                   id="firstName"
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
                 {errors.firstName && (
                   <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>
                 )}
               </div>
               <div>
-                <label htmlFor="lastName" className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="lastName" className={labelClassName}>
                   Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   {...register('lastName')}
                   id="lastName"
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
                 {errors.lastName && (
                   <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>
@@ -112,28 +135,37 @@ export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className={labelClassName}>
                 Email <span className="text-red-500">*</span>
               </label>
               <input
                 {...register('email')}
                 id="email"
                 type="email"
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={inputClassName}
               />
               {errors.email && (
                 <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
               )}
             </div>
+          </section>
+
+          <section className={sectionClassName}>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Access And Branch</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Choose the right role and branch scope for this team member.
+              </p>
+            </div>
 
             <div>
-              <label htmlFor="role" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="role" className={labelClassName}>
                 Role <span className="text-red-500">*</span>
               </label>
               <select
                 {...register('role')}
                 id="role"
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={inputClassName}
               >
                 <option value="">Select role…</option>
                 {ROLES.map((r) => (
@@ -149,7 +181,7 @@ export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
 
             {branches.length > 0 && (
               <div>
-                <label htmlFor="branchId" className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="branchId" className={labelClassName}>
                   Branch
                   {requiresBranch && <span className="text-red-500"> *</span>}
                 </label>
@@ -157,7 +189,7 @@ export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
                   {...register('branchId')}
                   id="branchId"
                   disabled={selectedRole === 'managing_partner'}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 >
                   <option value="">
                     {selectedRole === 'managing_partner' ? 'Managing partner is firm-wide' : 'Select branch…'}
@@ -168,36 +200,36 @@ export function InviteUserForm({ branches, onClose }: InviteUserFormProps) {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-slate-500">
                   Managing partners are firm-wide. Every other staff role must belong to a branch.
                 </p>
               </div>
             )}
+          </section>
 
-            {errorMsg && (
-              <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errorMsg}</p>
-            )}
+          {errorMsg && (
+            <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{errorMsg}</p>
+          )}
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Send Invite
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className={secondaryButtonClassName}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Send Invite
+            </button>
+          </div>
+        </form>
+      )}
+    </ModalShell>
   )
 }

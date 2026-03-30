@@ -3,6 +3,17 @@ import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
 import { ok, created, errorResponse } from '@/lib/api/response'
 import { parsePagination, parseSearch } from '@/lib/api/pagination'
 import { CreatePropertySchema } from '@valuation-os/utils'
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import {
+  buildPropertySearchWhere,
+  findPropertyDuplicateMatches,
+  normalizePropertyPayload,
+} from '@/lib/properties/property-records'
+
+const CreatePropertyRequestSchema = CreatePropertySchema.extend({
+  allowDuplicate: z.boolean().optional(),
+})
 
 export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   try {
@@ -11,20 +22,18 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
     const params = req.nextUrl.searchParams
     const state = params.get('state')
     const propertyUse = params.get('propertyUse')
+    const status = params.get('status') ?? 'active'
 
     const where = {
+      ...(status === 'archived'
+        ? { deletedAt: { not: null } }
+        : status === 'all'
+          ? {}
+          : { deletedAt: null }),
       ...(state ? { state } : {}),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...(propertyUse ? { propertyUse: propertyUse as any } : {}),
-      ...(search
-        ? {
-            OR: [
-              { address: { contains: search, mode: 'insensitive' as const } },
-              { city: { contains: search, mode: 'insensitive' as const } },
-              { state: { contains: search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
+      ...(buildPropertySearchWhere(search) ?? {}),
     }
 
     const [items, total] = await Promise.all([
@@ -33,7 +42,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
         select: {
           id: true, address: true, city: true, state: true,
           localGovernment: true, propertyUse: true, tenureType: true,
-          plotSize: true, plotSizeUnit: true, createdAt: true,
+          plotSize: true, plotSizeUnit: true, description: true, createdAt: true, deletedAt: true,
           _count: { select: { cases: true } },
         },
         skip,
@@ -51,14 +60,53 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
 
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
-    const body = CreatePropertySchema.parse(await req.json())
+    const body = CreatePropertyRequestSchema.parse(await req.json())
+    const normalized = normalizePropertyPayload(body)
+
+    const duplicateCandidates = await req.db.property.findMany({
+      where: { deletedAt: null },
+      select: { id: true, address: true, city: true, state: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+
+    const duplicateMatches = findPropertyDuplicateMatches(
+      { address: normalized.address!, city: normalized.city!, state: normalized.state! },
+      duplicateCandidates,
+    )
+
+    if (duplicateMatches.length > 0 && !body.allowDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'DUPLICATE_PROPERTY',
+            message: 'Possible duplicate properties found',
+          },
+          data: { duplicateMatches },
+        },
+        { status: 409 },
+      )
+    }
 
     const property = await req.db.property.create({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: { ...(body as any), createdById: req.session.userId },
+      data: {
+        address: normalized.address!,
+        city: normalized.city!,
+        state: normalized.state!,
+        ...(normalized.localGovernment ? { localGovernment: normalized.localGovernment } : {}),
+        propertyUse: normalized.propertyUse!,
+        tenureType: normalized.tenureType!,
+        ...(typeof normalized.plotSize === 'number' ? { plotSize: normalized.plotSize } : {}),
+        ...(normalized.plotSizeUnit ? { plotSizeUnit: normalized.plotSizeUnit } : {}),
+        ...(normalized.description ? { description: normalized.description } : {}),
+        ...(typeof normalized.latitude === 'number' ? { latitude: normalized.latitude } : {}),
+        ...(typeof normalized.longitude === 'number' ? { longitude: normalized.longitude } : {}),
+        createdById: req.session.userId,
+      },
       select: {
         id: true, address: true, city: true, state: true,
-        propertyUse: true, tenureType: true, createdAt: true,
+        propertyUse: true, tenureType: true, plotSize: true, plotSizeUnit: true, createdAt: true,
       },
     })
     return created(property)

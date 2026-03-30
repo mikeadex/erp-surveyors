@@ -19,20 +19,22 @@ export function ModalShell({
   widthClassName = 'max-w-2xl',
 }: ModalShellProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className={`w-full ${widthClassName} rounded-2xl bg-white shadow-xl`}>
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/25 px-4 py-6 backdrop-blur-md">
+      <div className="flex min-h-full items-start justify-center sm:items-center">
+        <div className={`flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/95 shadow-[0_30px_80px_-30px_rgba(15,23,42,0.45)] ${widthClassName}`}>
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
             {description && (
-              <p className="mt-1 text-xs text-gray-500">{description}</p>
+              <p className="mt-1 text-xs text-slate-500">{description}</p>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-slate-400 transition hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
+          </div>
+          <div className="overflow-y-auto px-5 py-5">{children}</div>
         </div>
-        <div className="px-5 py-5">{children}</div>
       </div>
     </div>
   )

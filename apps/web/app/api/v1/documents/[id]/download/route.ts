@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { NextResponse } from 'next/server'
+import { buildPublicAssetUrl, createPresignedDownloadUrl, hasSignedStorageConfig } from '@/lib/storage/s3'
 
 export const GET = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -15,10 +16,10 @@ export const GET = withAuth(async (req: AuthedRequest, ctx) => {
 
     if (!doc) throw Errors.NOT_FOUND('Document')
 
-    const s3BaseUrl = process.env.S3_PUBLIC_URL ?? process.env.CLOUDFLARE_R2_PUBLIC_URL
-    if (!s3BaseUrl) throw Errors.INTERNAL()
-
-    const downloadUrl = `${s3BaseUrl.replace(/\/$/, '')}/${doc.s3Key}`
+    const downloadUrl = hasSignedStorageConfig()
+      ? await createPresignedDownloadUrl({ key: doc.s3Key })
+      : buildPublicAssetUrl(doc.s3Key)
+    if (!downloadUrl) throw Errors.INTERNAL()
 
     return NextResponse.redirect(downloadUrl, { status: 302 })
   } catch (err) {

@@ -57,15 +57,45 @@ export default async function DashboardPage({
   return (
     <>
       <Header user={user} title="Dashboard" />
-      <div className="p-6 space-y-4">
-        <div className="flex items-center justify-end">
-          <BranchFilter branches={visibleBranches} />
+      <div className="space-y-5 px-4 pb-6 lg:px-6">
+        <section className="surface-card rounded-[30px] px-5 py-5 lg:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Command Centre
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                Keep valuations, branch work, and delivery risk in view.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                The workspace now uses a calmer operating shell with a neutral base, a collapsible
+                sidebar, and Nigerian-green accents for the important states.
+              </p>
+            </div>
+            <div className="flex items-center justify-start lg:justify-end">
+              <BranchFilter branches={visibleBranches} />
+            </div>
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Snapshot
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                A quick view of throughput, review load, and overdue pressure.
+              </p>
+            </div>
+          </div>
+          
+          <DashboardSummaryCards
+            stageMap={stageMap}
+            firmId={session.firmId}
+            {...(scopedBranchId ? { branchId: scopedBranchId } : {})}
+          />
         </div>
-        <DashboardSummaryCards
-          stageMap={stageMap}
-          firmId={session.firmId}
-          {...(scopedBranchId ? { branchId: scopedBranchId } : {})}
-        />
       </div>
     </>
   )

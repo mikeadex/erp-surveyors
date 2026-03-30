@@ -31,6 +31,7 @@ export interface Property {
   createdById: string
   createdAt: string
   updatedAt: string
+  deletedAt: string | null
 }
 
 export interface PropertySummary {
@@ -40,4 +41,5 @@ export interface PropertySummary {
   state: string
   propertyUse: PropertyUse
   tenureType: TenureType
+  deletedAt?: string | null
 }

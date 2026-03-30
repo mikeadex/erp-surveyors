@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Edit3, Loader2 } from 'lucide-react'
 import type { CreateClientInput } from '@valuation-os/utils'
 import { ModalShell } from '@/components/ui/modal-shell'
+import { SimpleRichTextEditor } from '@/components/ui/simple-rich-text-editor'
 
 interface BranchOption {
   id: string
@@ -34,6 +35,12 @@ interface ClientManagementPanelProps {
   mode?: 'panel' | 'trigger'
   buttonClassName?: string
 }
+
+const labelClassName = 'mb-1 block text-xs font-medium text-slate-700'
+const inputClassName =
+  'block w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
+const secondaryButtonClassName =
+  'rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50'
 
 export function ClientManagementPanel({
   clientId,
@@ -156,12 +163,12 @@ export function ClientManagementPanel({
   return (
     <>
       {mode === 'panel' ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <section className="surface-card rounded-[28px] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Manage Client</h2>
-              <p className="mt-1 text-xs text-gray-500">
-                Edit relationship details in a modal instead of inline on the page.
+              <h2 className="text-sm font-semibold text-slate-900">Manage Client</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Update relationship details in the same focused edit flow used across the app.
               </p>
             </div>
             <button
@@ -170,7 +177,7 @@ export function ClientManagementPanel({
                 resetForm()
                 setOpen(true)
               }}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="inline-flex items-center gap-2 rounded-2xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800"
             >
               <Edit3 className="h-4 w-4" />
               Edit Client
@@ -178,31 +185,31 @@ export function ClientManagementPanel({
           </div>
 
           <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <dt className="text-xs uppercase tracking-wide text-gray-500">Branch</dt>
-              <dd className="mt-1 font-medium text-gray-900">{initial.branchName ?? 'Unassigned'}</dd>
+            <div className="rounded-[22px] bg-slate-50/80 px-3.5 py-3">
+              <dt className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Branch</dt>
+              <dd className="mt-1 font-medium text-slate-900">{initial.branchName ?? 'Unassigned'}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <dt className="text-xs uppercase tracking-wide text-gray-500">Type</dt>
-              <dd className="mt-1 font-medium capitalize text-gray-900">{initial.type}</dd>
+            <div className="rounded-[22px] bg-slate-50/80 px-3.5 py-3">
+              <dt className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Type</dt>
+              <dd className="mt-1 font-medium capitalize text-slate-900">{initial.type}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <dt className="text-xs uppercase tracking-wide text-gray-500">Email</dt>
-              <dd className="mt-1 font-medium text-gray-900">{initial.email ?? '—'}</dd>
+            <div className="rounded-[22px] bg-slate-50/80 px-3.5 py-3">
+              <dt className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Email</dt>
+              <dd className="mt-1 font-medium text-slate-900">{initial.email ?? '—'}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <dt className="text-xs uppercase tracking-wide text-gray-500">Phone</dt>
-              <dd className="mt-1 font-medium text-gray-900">{initial.phone ?? '—'}</dd>
+            <div className="rounded-[22px] bg-slate-50/80 px-3.5 py-3">
+              <dt className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Phone</dt>
+              <dd className="mt-1 font-medium text-slate-900">{initial.phone ?? '—'}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-2 sm:col-span-2">
-              <dt className="text-xs uppercase tracking-wide text-gray-500">Tags</dt>
-              <dd className="mt-1 font-medium text-gray-900">
+            <div className="rounded-[22px] bg-slate-50/80 px-3.5 py-3 sm:col-span-2">
+              <dt className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tags</dt>
+              <dd className="mt-1 font-medium text-slate-900">
                 {initial.tags.length > 0 ? initial.tags.join(', ') : 'No tags'}
               </dd>
             </div>
             {initial.deletedAt && (
-              <div className="rounded-lg bg-amber-50 px-3 py-2 sm:col-span-2">
-                <dt className="text-xs uppercase tracking-wide text-amber-700">Status</dt>
+              <div className="rounded-[22px] bg-amber-50 px-3.5 py-3 sm:col-span-2">
+                <dt className="text-[11px] uppercase tracking-[0.2em] text-amber-700">Status</dt>
                 <dd className="mt-1 font-medium text-amber-900">Archived</dd>
               </div>
             )}
@@ -215,7 +222,7 @@ export function ClientManagementPanel({
             resetForm()
             setOpen(true)
           }}
-          className={buttonClassName ?? 'inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50'}
+          className={buttonClassName ?? secondaryButtonClassName}
         >
           <Edit3 className="h-4 w-4" />
           Edit Client
@@ -234,12 +241,12 @@ export function ClientManagementPanel({
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-700">Branch</label>
+                <label className={labelClassName}>Branch</label>
                 <select
                   value={form.branchId}
                   onChange={(event) => setForm((current) => ({ ...current, branchId: event.target.value }))}
                   disabled={!canSelectBranch}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                  className={`${inputClassName} disabled:bg-slate-100 disabled:text-slate-500`}
                 >
                   <option value="">Select branch…</option>
                   {branches.map((branch) => (
@@ -251,23 +258,23 @@ export function ClientManagementPanel({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-700">Client Name</label>
+                <label className={labelClassName}>Client Name</label>
                 <input
                   value={form.name}
                   onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Type</label>
+                <label className={labelClassName}>Type</label>
                 <select
                   value={form.type}
                   onChange={(event) => setForm((current) => ({
                     ...current,
                     type: event.target.value as 'individual' | 'corporate',
                   }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 >
                   <option value="individual">Individual</option>
                   <option value="corporate">Corporate</option>
@@ -275,84 +282,82 @@ export function ClientManagementPanel({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">RC Number</label>
+                <label className={labelClassName}>RC Number</label>
                 <input
                   value={form.rcNumber}
                   onChange={(event) => setForm((current) => ({ ...current, rcNumber: event.target.value }))}
                   disabled={form.type !== 'corporate'}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+                  className={`${inputClassName} disabled:bg-slate-100`}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Email</label>
+                <label className={labelClassName}>Email</label>
                 <input
                   value={form.email}
                   onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Phone</label>
+                <label className={labelClassName}>Phone</label>
                 <input
                   value={form.phone}
                   onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-700">Address</label>
+                <label className={labelClassName}>Address</label>
                 <input
                   value={form.address}
                   onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">City</label>
+                <label className={labelClassName}>City</label>
                 <input
                   value={form.city}
                   onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">State</label>
+                <label className={labelClassName}>State</label>
                 <input
                   value={form.state}
                   onChange={(event) => setForm((current) => ({ ...current, state: event.target.value }))}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-700">Tags</label>
+                <label className={labelClassName}>Tags</label>
                 <input
                   value={form.tags}
                   onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
                   placeholder="bank, repeat-client, priority"
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClassName}
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-gray-700">Relationship Notes</label>
-                <textarea
-                  rows={5}
+                <label className={labelClassName}>Relationship Notes</label>
+                <SimpleRichTextEditor
                   value={form.notes}
-                  onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+                  onChange={(value) => setForm((current) => ({ ...current, notes: value }))}
                   placeholder="Capture relationship context, internal handling notes, or service preferences."
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
 
-            {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-            {notice && <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
+            {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+            {notice && <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
 
             <div className="flex items-center justify-between gap-3 pt-2">
               {canArchive ? (
@@ -360,9 +365,9 @@ export function ClientManagementPanel({
                   type="button"
                   onClick={toggleArchived}
                   disabled={acting}
-                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${
+                  className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
                     initial.deletedAt
-                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      ? 'bg-brand-700 text-white hover:bg-brand-800'
                       : 'bg-red-50 text-red-700 hover:bg-red-100'
                   } disabled:opacity-60`}
                 >
@@ -378,7 +383,7 @@ export function ClientManagementPanel({
                     setOpen(false)
                     resetForm()
                   }}
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  className={secondaryButtonClassName}
                 >
                   Cancel
                 </button>
@@ -386,7 +391,7 @@ export function ClientManagementPanel({
                   type="button"
                   onClick={save}
                   disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:opacity-60"
                 >
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                   Save Changes
@@ -395,11 +400,11 @@ export function ClientManagementPanel({
             </div>
 
             {duplicateWarnings.length > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-4">
                 <h3 className="text-sm font-semibold text-amber-900">Similar client records</h3>
                 <ul className="mt-3 space-y-2 text-sm text-amber-900">
                   {duplicateWarnings.map((match) => (
-                    <li key={match.id} className="rounded-lg bg-white/80 px-3 py-2">
+                    <li key={match.id} className="rounded-2xl bg-white/80 px-3 py-2">
                       <div className="font-medium">{match.name}</div>
                       <div className="text-xs text-amber-700">
                         Match score {match.score}

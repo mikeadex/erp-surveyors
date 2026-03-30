@@ -24,13 +24,38 @@ interface NewCaseFormProps {
   properties: SelectOption[]
   valuers: SelectOption[]
   branches: SelectOption[]
+  onCancel?: () => void
 }
 
 const VALUATION_TYPES = [
   'market', 'rental', 'mortgage', 'insurance', 'probate', 'commercial', 'land',
 ] as const
 
-export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseFormProps) {
+const sectionClassName = 'rounded-[24px] border border-slate-200 bg-slate-50/60 p-5 space-y-4'
+const inputClassName =
+  'block w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
+const labelClassName = 'mb-1 block text-xs font-medium text-slate-700'
+const secondaryButtonClassName =
+  'rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50'
+
+function toIsoDateTime(value: unknown) {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const parsed = new Date(trimmed)
+  if (Number.isNaN(parsed.getTime())) return trimmed
+
+  return parsed.toISOString()
+}
+
+export function NewCaseForm({
+  clients,
+  properties,
+  valuers,
+  branches,
+  onCancel,
+}: NewCaseFormProps) {
   const router = useRouter()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -64,17 +89,22 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-900">Case Information</h2>
+      <section className={sectionClassName}>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Case Information</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Link the instruction to the right client, property, and valuation intent.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className={labelClassName}>
               Client <span className="text-red-500">*</span>
             </label>
             <select
               {...register('clientId')}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={inputClassName}
             >
               <option value="">Select client…</option>
               {clients.map((c) => (
@@ -89,12 +119,12 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className={labelClassName}>
               Valuation Type <span className="text-red-500">*</span>
             </label>
             <select
               {...register('valuationType')}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={inputClassName}
             >
               <option value="">Select type…</option>
               {VALUATION_TYPES.map((t) => (
@@ -110,12 +140,12 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className={labelClassName}>
             Property <span className="text-red-500">*</span>
           </label>
           <select
             {...register('propertyId')}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={inputClassName}
           >
             <option value="">Select property…</option>
             {properties.map((p) => (
@@ -130,29 +160,34 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className={labelClassName}>
             Valuation Purpose
           </label>
           <input
             {...register('valuationPurpose')}
             type="text"
             placeholder="e.g. Mortgage, Sale, Insurance…"
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={inputClassName}
           />
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-900">Assignment</h2>
+      <section className={sectionClassName}>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Assignment</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Set ownership, reviewer flow, branch scope, and timing before the case opens.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className={labelClassName}>
               Assigned Valuer <span className="text-red-500">*</span>
             </label>
             <select
               {...register('assignedValuerId')}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={inputClassName}
             >
               <option value="">Select valuer…</option>
               {valuers.map((v) => (
@@ -167,12 +202,12 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className={labelClassName}>
               Assigned Reviewer
             </label>
             <select
               {...register('assignedReviewerId')}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={inputClassName}
             >
               <option value="">None</option>
               {valuers.map((v) => (
@@ -185,12 +220,12 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
 
           {branches.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className={labelClassName}>
                 Branch {branches.length === 1 && <span className="text-red-500">*</span>}
               </label>
               <select
                 {...register('branchId')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={inputClassName}
               >
                 {branches.length > 1 && <option value="">No branch</option>}
                 {branches.map((b) => (
@@ -200,7 +235,7 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
                 ))}
               </select>
               {selectedBranchId && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-slate-500">
                   This case will be tracked under the selected branch.
                 </p>
               )}
@@ -208,58 +243,69 @@ export function NewCaseForm({ clients, properties, valuers, branches }: NewCaseF
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
+            <label className={labelClassName}>Due Date</label>
             <input
-              {...register('dueDate')}
+              {...register('dueDate', {
+                setValueAs: toIsoDateTime,
+              })}
               type="datetime-local"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={inputClassName}
             />
+            {errors.dueDate && (
+              <p className="mt-1 text-xs text-red-600">{errors.dueDate.message}</p>
+            )}
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-900">Fees & Notes</h2>
+      <section className={sectionClassName}>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Fees And Notes</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Capture commercial context and any opening notes the team should see immediately.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Fee Amount (₦)</label>
+            <label className={labelClassName}>Fee Amount (₦)</label>
             <input
               {...register('feeAmount', { valueAsNumber: true })}
               type="number"
               min={0}
               step={0.01}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={inputClassName}
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Internal Notes</label>
+          <label className={labelClassName}>Internal Notes</label>
           <textarea
             {...register('internalNotes')}
-            rows={3}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            rows={5}
+            placeholder="Add any kickoff context for the valuation team…"
+            className={`${inputClassName} min-h-[140px] resize-y`}
           />
         </div>
       </section>
 
       {errorMsg && (
-        <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{errorMsg}</p>
+        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{errorMsg}</p>
       )}
 
       <div className="flex items-center justify-end gap-3">
         <button
           type="button"
-          onClick={() => router.back()}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+          onClick={() => (onCancel ? onCancel() : router.back())}
+          className={secondaryButtonClassName}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           Create Case

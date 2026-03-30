@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { verifyAccessToken } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
-import { Sidebar } from '@/components/layout/sidebar'
+import { DashboardShell } from '@/components/layout/dashboard-shell'
 
 export default async function DashboardLayout({
   children,
@@ -21,19 +21,27 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  const firm = await prisma.firm.findUnique({
-    where: { id: session.firmId },
-    select: { name: true },
-  })
+  const [firm, user] = await Promise.all([
+    prisma.firm.findUnique({
+      where: { id: session.firmId },
+      select: { name: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { firstName: true, lastName: true },
+    }),
+  ])
 
-  if (!firm) redirect('/login')
+  if (!firm || !user) redirect('/login')
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar userRole={session.role} firmName={firm.name} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
-      </div>
-    </div>
+    <DashboardShell
+      userRole={session.role}
+      firmName={firm.name}
+      userFirstName={user.firstName}
+      userLastName={user.lastName}
+    >
+      {children}
+    </DashboardShell>
   )
 }

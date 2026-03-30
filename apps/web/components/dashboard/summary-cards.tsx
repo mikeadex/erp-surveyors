@@ -1,4 +1,4 @@
-import { FolderOpen, Clock, CheckCircle, AlertTriangle, type LucideIcon } from 'lucide-react'
+import { FolderOpen, Clock, CheckCircle, AlertTriangle, TrendingUp, type LucideIcon } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 
 interface SummaryCardsProps {
@@ -11,8 +11,8 @@ interface StatCard {
   label: string
   value: number
   icon: LucideIcon
-  color: string
-  bg: string
+  tone: string
+  footnote: string
 }
 
 export async function DashboardSummaryCards({ stageMap, firmId, branchId }: SummaryCardsProps) {
@@ -38,29 +38,29 @@ export async function DashboardSummaryCards({ stageMap, firmId, branchId }: Summ
       label: 'Active Cases',
       value: activeCases,
       icon: FolderOpen,
-      color: 'text-brand-700',
-      bg: 'bg-brand-50',
+      tone: 'text-brand-700',
+      footnote: 'Open instructions moving through the pipeline',
     },
     {
       label: 'Pending Review',
       value: pendingReview,
       icon: Clock,
-      color: 'text-amber-700',
-      bg: 'bg-amber-50',
+      tone: 'text-slate-900',
+      footnote: 'Files waiting for reviewer sign-off',
     },
     {
       label: 'Completed',
       value: completedCases,
       icon: CheckCircle,
-      color: 'text-green-700',
-      bg: 'bg-green-50',
+      tone: 'text-slate-900',
+      footnote: 'Reports issued and payment milestones reached',
     },
     {
       label: 'Overdue',
       value: overdueCount,
       icon: AlertTriangle,
-      color: 'text-red-700',
-      bg: 'bg-red-50',
+      tone: 'text-slate-900',
+      footnote: 'Interventions needed to protect turnaround time',
     },
   ]
 
@@ -71,21 +71,56 @@ export async function DashboardSummaryCards({ stageMap, firmId, branchId }: Summ
         return (
           <div
             key={card.label}
-            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            className="surface-card relative overflow-hidden rounded-[28px] p-5"
           >
+            <div className="absolute inset-x-0 top-0 h-1 bg-brand-500/75" />
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-500">{card.label}</p>
-              <span className={`rounded-lg p-2 ${card.bg}`}>
-                <Icon className={`h-4 w-4 ${card.color}`} />
+              <div>
+                <p className="text-sm font-medium text-slate-500">{card.label}</p>
+                <p className={`mt-3 text-3xl font-semibold tracking-tight ${card.tone}`}>{card.value}</p>
+              </div>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                <Icon className="h-5 w-5" />
               </span>
             </div>
-            <p className={`mt-3 text-3xl font-bold ${card.color}`}>{card.value}</p>
+            <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-700">
+                <TrendingUp className="h-3.5 w-3.5 text-brand-600" />
+                Live
+              </span>
+              <span>{card.footnote}</span>
+            </div>
           </div>
         )
       })}
-      <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-4">
-        <p className="text-sm font-medium text-gray-500 mb-1">Total Clients</p>
-        <p className="text-2xl font-bold text-gray-900">{totalClients}</p>
+      <div className="surface-card col-span-2 rounded-[30px] p-6 lg:col-span-4">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Client Portfolio</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{totalClients}</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+              Active relationships currently available for case intake, branch operations, and reporting.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Active</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{activeCases}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Review</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{pendingReview}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Done</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{completedCases}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">At Risk</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{overdueCount}</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

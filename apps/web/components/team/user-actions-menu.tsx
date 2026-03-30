@@ -59,8 +59,13 @@ export function UserActionsMenu({
   useEffect(() => {
     if (selectedRole === 'managing_partner') {
       setSelectedBranchId('')
+      return
     }
-  }, [selectedRole])
+
+    if (!selectedBranchId && branches.length === 1) {
+      setSelectedBranchId(branches[0]?.id ?? '')
+    }
+  }, [branches, selectedBranchId, selectedRole])
 
   if (isSelf) return null
 
@@ -129,24 +134,24 @@ export function UserActionsMenu({
           setSelectedRole(currentRole)
           setSelectedBranchId(currentBranchId ?? '')
         }}
-        className="inline-flex items-center justify-center h-7 w-7 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
         disabled={loading}
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+        <div className="absolute right-0 z-20 mt-2 w-72 rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_22px_44px_-24px_rgba(15,23,42,0.35)]">
           <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            <div className="rounded-[20px] bg-slate-50/70 p-3">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                 Role
               </label>
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value as UserRole)}
                 disabled={!canChangeRole || loading}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+                className="block w-full rounded-2xl border border-slate-200 px-3.5 py-3 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50"
               >
                 {ROLES.map((role) => (
                   <option key={role} value={role}>
@@ -156,15 +161,15 @@ export function UserActionsMenu({
               </select>
             </div>
 
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            <div className="rounded-[20px] bg-slate-50/70 p-3">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                 Branch
               </label>
               <select
                 value={selectedBranchId}
                 onChange={(e) => setSelectedBranchId(e.target.value)}
                 disabled={selectedRole === 'managing_partner' || loading}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+                className="block w-full rounded-2xl border border-slate-200 px-3.5 py-3 text-sm text-slate-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50"
               >
                 <option value="">
                   {selectedRole === 'managing_partner' ? 'Managing partner is firm-wide' : 'Select branch…'}
@@ -175,26 +180,26 @@ export function UserActionsMenu({
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-slate-500">
                 Non-managing-partner staff must be assigned to a branch.
               </p>
             </div>
 
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+            {error && <p className="rounded-2xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
 
             <button
               onClick={saveAssignment}
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              className="w-full rounded-2xl bg-brand-600 px-3 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
             >
               Save Assignment
             </button>
 
-            <div className="border-t border-gray-100 pt-2">
+            <div className="border-t border-slate-100 pt-2">
               <button
                 onClick={toggleActive}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 ${
-                  isActive ? 'text-red-600' : 'text-green-700'
+                className={`flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm transition hover:bg-slate-50 ${
+                  isActive ? 'text-red-600' : 'text-brand-700'
                 }`}
               >
                 {isActive

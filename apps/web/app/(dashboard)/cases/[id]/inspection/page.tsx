@@ -5,7 +5,11 @@ import { verifyAccessToken } from '@/lib/auth/session'
 import { Header } from '@/components/layout/header'
 import { InspectionForm } from '@/components/inspections/inspection-form'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Camera, ClipboardCheck, MapPin } from 'lucide-react'
+import { assertRecordBranchAccess } from '@/lib/auth/branch-scope'
+import { InspectionMediaGallery } from '@/components/inspections/inspection-media-gallery'
+import { hasMediaReadConfig, hasSignedStorageConfig } from '@/lib/storage/s3'
+import { InspectionMediaManager } from '@/components/inspections/inspection-media-manager'
 
 export default async function InspectionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: caseId } = await params
@@ -25,38 +29,181 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
     prisma.case.findFirst({
       where: { id: caseId, firmId: session.firmId },
       select: {
-        id: true, reference: true, stage: true,
+        id: true, reference: true, stage: true, branchId: true,
         property: { select: { address: true, city: true, state: true } },
-        inspection: true,
+        inspection: {
+          select: {
+            id: true,
+            status: true,
+            inspectionDate: true,
+            occupancy: true,
+            locationDescription: true,
+            externalCondition: true,
+            internalCondition: true,
+            services: true,
+            conditionSummary: true,
+            notes: true,
+            media: {
+              select: { id: true, s3Key: true, caption: true },
+              orderBy: [{ sortOrder: 'asc' }, { takenAt: 'asc' }],
+            },
+          },
+        },
       },
     }),
   ])
 
   if (!user) redirect('/login')
   if (!caseRecord) notFound()
+  try {
+    assertRecordBranchAccess(session, caseRecord.branchId, 'case')
+  } catch {
+    notFound()
+  }
+
+  const mediaConfigured = hasMediaReadConfig()
+  const uploadConfigured = hasSignedStorageConfig()
 
   return (
     <>
       <Header user={user} title={`Inspection — ${caseRecord.reference}`} />
-      <div className="p-6 max-w-3xl space-y-4">
-        <Link
-          href={`/cases/${caseId}`}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to case
-        </Link>
+      <div className="space-y-5 px-4 pb-6 lg:px-6">
+        <section className="surface-card rounded-[30px] px-5 py-5 lg:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Inspection Workspace
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                Capture field observations, condition notes, and submission readiness.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Keep the inspection readable for valuers and reviewers without leaving the case context.
+              </p>
+            </div>
+            <Link
+              href={`/cases/${caseId}`}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to case
+            </Link>
+          </div>
+        </section>
 
-        <div className="rounded-xl border border-gray-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          <span className="font-semibold">{caseRecord.property.address}</span>,{' '}
-          {caseRecord.property.city}, {caseRecord.property.state}
+        <section className="surface-card rounded-[28px] px-5 py-5 lg:px-6">
+          <div className="grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
+            <div className="rounded-[24px] bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Site
+              </p>
+              <div className="mt-3 flex items-start gap-3">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                  <MapPin className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{caseRecord.property.address}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {[caseRecord.property.city, caseRecord.property.state].filter(Boolean).join(', ')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="rounded-[24px] bg-slate-50/80 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Status
+                </p>
+                <p className="mt-2 text-lg font-semibold capitalize text-slate-900">
+                  {caseRecord.inspection?.status ?? 'Not started'}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {caseRecord.inspection?.inspectionDate
+                    ? `Inspection date ${new Date(caseRecord.inspection.inspectionDate).toLocaleDateString('en-GB')}`
+                    : 'No inspection date set yet'}
+                </p>
+              </div>
+
+              <div className="rounded-[24px] bg-slate-50/80 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Photos
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {caseRecord.inspection?.media.length ?? 0}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Existing field images linked to this inspection.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="space-y-5">
+            <InspectionForm
+              caseId={caseId}
+              inspection={caseRecord.inspection ?? null}
+              currentUserId={session.userId}
+            />
+          </div>
+
+          <div className="space-y-5">
+            <section className="surface-card rounded-[28px] p-5">
+              <div className="flex items-center gap-2">
+                <Camera className="h-4 w-4 text-slate-400" />
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">Photo Register</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Field images linked to this inspection appear here as soon as storage is available.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                {caseRecord.inspection ? (
+                  <InspectionMediaManager
+                    caseId={caseId}
+                    inspectionId={caseRecord.inspection.id}
+                    items={caseRecord.inspection.media}
+                    configured={mediaConfigured}
+                    uploadConfigured={uploadConfigured}
+                    isSubmitted={caseRecord.inspection.status === 'submitted'}
+                  />
+                ) : (
+                  <InspectionMediaGallery
+                    items={[]}
+                    configured={mediaConfigured}
+                    emptyCopy="Save the inspection draft first before attaching photos."
+                  />
+                )}
+              </div>
+            </section>
+
+            <section className="surface-card rounded-[28px] p-5">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-slate-400" />
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">Workflow Notes</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Draft first, then submit once the inspection summary and supporting details are complete.
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                <li className="rounded-[22px] bg-slate-50/80 px-4 py-3">
+                  Save a draft as often as needed while the inspection is still in progress.
+                </li>
+                <li className="rounded-[22px] bg-slate-50/80 px-4 py-3">
+                  Submitted inspections become read-only and push the case forward when it was waiting on site work.
+                </li>
+                <li className="rounded-[22px] bg-slate-50/80 px-4 py-3">
+                  Photo previews depend on a configured public storage URL in this environment.
+                </li>
+              </ul>
+            </section>
+          </div>
         </div>
-
-        <InspectionForm
-          caseId={caseId}
-          inspection={caseRecord.inspection ?? null}
-          currentUserId={session.userId}
-        />
       </div>
     </>
   )

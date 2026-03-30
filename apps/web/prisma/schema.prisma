@@ -209,10 +209,12 @@ model Property {
   createdById      String
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
 
   cases Case[]
 
   @@index([firmId])
+  @@index([firmId, deletedAt])
   @@index([firmId, state, city])
   @@map("properties")
 }

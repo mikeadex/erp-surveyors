@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ClipboardCheck, Loader2, Save, Send } from 'lucide-react'
+import { SimpleRichTextEditor } from '@/components/ui/simple-rich-text-editor'
+
 type Inspection = {
   id: string
   status: string
@@ -37,16 +40,10 @@ interface Props {
   currentUserId: string
 }
 
-const fields: { name: keyof FormData; label: string; rows?: number }[] = [
-  { name: 'inspectionDate', label: 'Inspection Date' },
-  { name: 'occupancy', label: 'Occupancy Status' },
-  { name: 'locationDescription', label: 'Location Description', rows: 3 },
-  { name: 'externalCondition', label: 'External Condition', rows: 4 },
-  { name: 'internalCondition', label: 'Internal Condition', rows: 4 },
-  { name: 'services', label: 'Services & Utilities', rows: 3 },
-  { name: 'conditionSummary', label: 'Condition Summary', rows: 4 },
-  { name: 'notes', label: 'Inspector Notes', rows: 3 },
-]
+const sectionClassName = 'rounded-[24px] border border-slate-200 bg-slate-50/60 p-5 space-y-4'
+const inputClassName =
+  'block w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100 disabled:text-slate-500'
+const labelClassName = 'mb-1 block text-xs font-medium text-slate-700'
 
 export function InspectionForm({ caseId, inspection }: Props) {
   const router = useRouter()
@@ -54,7 +51,13 @@ export function InspectionForm({ caseId, inspection }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const isSubmitted = inspection?.status === 'submitted'
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       inspectionDate: inspection?.inspectionDate
@@ -69,6 +72,8 @@ export function InspectionForm({ caseId, inspection }: Props) {
       notes: inspection?.notes ?? '',
     },
   })
+  const conditionSummary = watch('conditionSummary') ?? ''
+  const notes = watch('notes') ?? ''
 
   const onSave = async (data: FormData) => {
     setError('')
@@ -115,57 +120,162 @@ export function InspectionForm({ caseId, inspection }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="space-y-4">
       {isSubmitted && (
-        <div className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800 font-medium">
+        <div className="rounded-[22px] border border-brand-200 bg-brand-50/80 px-4 py-3 text-sm font-medium text-brand-800">
           This inspection has been submitted and is now read-only.
         </div>
       )}
 
       <form onSubmit={handleSubmit(onSave)} className="space-y-5">
-        {fields.map(({ name, label, rows }) => (
-          <div key={name}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-            {rows ? (
-              <textarea
-                {...register(name)}
-                rows={rows}
-                disabled={isSubmitted}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            ) : (
+        <section className={sectionClassName}>
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-slate-400" />
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Inspection Setup</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Record when the site visit happened and the current occupancy context.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClassName}>Inspection Date</label>
               <input
-                type={name === 'inspectionDate' ? 'date' : 'text'}
-                {...register(name)}
+                type="date"
+                {...register('inspectionDate')}
                 disabled={isSubmitted}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                className={inputClassName}
               />
-            )}
-            {errors[name] && (
-              <p className="mt-1 text-xs text-red-600">{errors[name]?.message}</p>
+              {errors.inspectionDate && (
+                <p className="mt-1 text-xs text-red-600">{errors.inspectionDate.message}</p>
+              )}
+            </div>
+            <div>
+              <label className={labelClassName}>Occupancy Status</label>
+              <input
+                type="text"
+                {...register('occupancy')}
+                disabled={isSubmitted}
+                className={inputClassName}
+                placeholder="Occupied, vacant, partly occupied…"
+              />
+              {errors.occupancy && (
+                <p className="mt-1 text-xs text-red-600">{errors.occupancy.message}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClassName}>Location Description</label>
+            <textarea
+              {...register('locationDescription')}
+              rows={4}
+              disabled={isSubmitted}
+              placeholder="Describe access, surrounding context, neighbourhood cues, and site approach."
+              className={`${inputClassName} min-h-[120px] resize-y`}
+            />
+          </div>
+        </section>
+
+        <section className={sectionClassName}>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Site Condition</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Capture what the team observed externally, internally, and across building services.
+            </p>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <label className={labelClassName}>External Condition</label>
+              <textarea
+                {...register('externalCondition')}
+                rows={5}
+                disabled={isSubmitted}
+                placeholder="Frontage, access road, external finishes, drainage, defects…"
+                className={`${inputClassName} min-h-[150px] resize-y`}
+              />
+            </div>
+            <div>
+              <label className={labelClassName}>Internal Condition</label>
+              <textarea
+                {...register('internalCondition')}
+                rows={5}
+                disabled={isSubmitted}
+                placeholder="Room layout, finishes, maintenance state, visible deterioration…"
+                className={`${inputClassName} min-h-[150px] resize-y`}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClassName}>Services And Utilities</label>
+            <textarea
+              {...register('services')}
+              rows={4}
+              disabled={isSubmitted}
+              placeholder="Power, water, waste, telecoms, sewage, security, and other services."
+              className={`${inputClassName} min-h-[130px] resize-y`}
+            />
+          </div>
+        </section>
+
+        <section className={sectionClassName}>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Summary And Notes</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Keep the main inspection conclusion and supporting notes readable for reviewers.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClassName}>Condition Summary</label>
+            <SimpleRichTextEditor
+              value={conditionSummary}
+              onChange={(value) => setValue('conditionSummary', value, { shouldDirty: true })}
+              placeholder="Summarise the property condition, valuation relevance, and key risk markers."
+            />
+            {errors.conditionSummary && (
+              <p className="mt-1 text-xs text-red-600">{errors.conditionSummary.message}</p>
             )}
           </div>
-        ))}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+          <div>
+            <label className={labelClassName}>Inspector Notes</label>
+            <SimpleRichTextEditor
+              value={notes}
+              onChange={(value) => setValue('notes', value, { shouldDirty: true })}
+              placeholder="Add supporting field notes, next steps, or anything reviewers should keep in view."
+            />
+            {errors.notes && (
+              <p className="mt-1 text-xs text-red-600">{errors.notes.message}</p>
+            )}
+          </div>
+        </section>
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
         {!isSubmitted && (
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
             >
-              {isSubmitting ? 'Saving…' : 'Save Draft'}
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Draft
             </button>
             {inspection && (
               <button
                 type="button"
                 onClick={onSubmit}
                 disabled={submitting}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-white px-4 py-3 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 disabled:opacity-60"
               >
-                {submitting ? 'Submitting…' : 'Submit Inspection'}
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Submit Inspection
               </button>
             )}
           </div>

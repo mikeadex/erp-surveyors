@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header'
 import { AnalysisWorkbench } from '@/components/analysis/analysis-workbench'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { rankComparablesForProperty } from '@/lib/properties/property-records'
 
 export default async function AnalysisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: caseId } = await params
@@ -26,7 +27,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
       where: { id: caseId, firmId: session.firmId },
       select: {
         id: true, reference: true, stage: true,
-        property: { select: { address: true, city: true, state: true } },
+        property: { select: { address: true, city: true, state: true, propertyUse: true, tenureType: true } },
         analysis: true,
         caseComparables: {
           include: { comparable: true },
@@ -38,6 +39,36 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
 
   if (!user) redirect('/login')
   if (!caseRecord) notFound()
+
+  const suggestedComparables = rankComparablesForProperty(
+    {
+      city: caseRecord.property.city,
+      state: caseRecord.property.state,
+      propertyUse: caseRecord.property.propertyUse,
+      tenureType: caseRecord.property.tenureType,
+    },
+    await prisma.comparable.findMany({
+      where: { firmId: session.firmId },
+      select: {
+        id: true,
+        comparableType: true,
+        address: true,
+        city: true,
+        state: true,
+        propertyUse: true,
+        tenureType: true,
+        salePrice: true,
+        rentalValue: true,
+        transactionDate: true,
+        isVerified: true,
+        createdAt: true,
+      },
+      take: 100,
+      orderBy: { createdAt: 'desc' },
+    }),
+  )
+    .filter((candidate) => !caseRecord.caseComparables.some((attached) => attached.comparable.id === candidate.id))
+    .slice(0, 8)
 
   return (
     <>
@@ -55,6 +86,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
           caseId={caseId}
           analysis={caseRecord.analysis ?? null}
           comparables={caseRecord.caseComparables}
+          suggestedComparables={suggestedComparables}
         />
       </div>
     </>

@@ -2,10 +2,11 @@ import { withAuth } from '@/lib/api/with-auth'
 import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
 import { prisma } from '@/lib/db/prisma'
 import { ok, created, errorResponse } from '@/lib/api/response'
+import { Errors } from '@/lib/api/errors'
 import { parsePagination, parseSearch } from '@/lib/api/pagination'
 import { CreateCaseSchema } from '@valuation-os/utils'
 import type { CaseStage } from '@valuation-os/types'
-import type { TenantPrisma } from '@/lib/db/tenant'
+import { Prisma } from '@prisma/client'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import {
   assertBranchBelongsToFirm,
@@ -70,18 +71,29 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   }
 }))
 
-async function generateReference(db: TenantPrisma): Promise<string> {
+async function generateReference(): Promise<string> {
   const now = new Date()
   const prefix = `VAL-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  const count = await db.case.count()
-  return `${prefix}-${String(count + 1).padStart(4, '0')}`
+  const latest = await prisma.case.findFirst({
+    where: {
+      reference: {
+        startsWith: `${prefix}-`,
+      },
+    },
+    select: { reference: true },
+    orderBy: { reference: 'desc' },
+  })
+
+  const lastSequence = latest?.reference.match(/-(\d{4})$/)?.[1]
+  const nextSequence = (lastSequence ? Number(lastSequence) : 0) + 1
+
+  return `${prefix}-${String(nextSequence).padStart(4, '0')}`
 }
 
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
     const body = CreateCaseSchema.parse(await req.json())
     const scopedBranchId = await resolveScopedBranchId(req.session, body.branchId ?? null)
-    const reference = await generateReference(req.db)
 
     await Promise.all([
       assertClientBelongsToFirm(body.clientId, req.firmId),
@@ -105,18 +117,63 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
       ...(scopedBranchId ? [assertBranchBelongsToFirm(scopedBranchId, req.firmId)] : []),
     ])
 
-    const caseRecord = await req.db.case.create({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let caseRecord: {
+      id: string
+      reference: string
+      stage: CaseStage
+      valuationType: string
+      createdAt: Date
+      client: { id: string; name: string }
+    } | null = null
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const reference = await generateReference()
+
+      try {
+        caseRecord = await req.db.case.create({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data: {
+            ...(body as any),
+            branchId: scopedBranchId ?? null,
+            reference,
+            createdById: req.session.userId,
+          },
+          select: {
+            id: true, reference: true, stage: true, valuationType: true,
+            createdAt: true,
+            client: { select: { id: true, name: true } },
+          },
+        })
+        break
+      } catch (err) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError
+          && err.code === 'P2002'
+          && Array.isArray(err.meta?.target)
+          && err.meta.target.includes('reference')
+        ) {
+          continue
+        }
+        throw err
+      }
+    }
+
+    if (!caseRecord) {
+      throw Errors.CONFLICT('Could not generate a unique case reference. Please try again.')
+    }
+
+    await prisma.auditLog.create({
       data: {
-        ...(body as any),
-        branchId: scopedBranchId ?? null,
-        reference,
-        createdById: req.session.userId,
-      },
-      select: {
-        id: true, reference: true, stage: true, valuationType: true,
-        createdAt: true,
-        client: { select: { id: true, name: true } },
+        firmId: req.firmId,
+        userId: req.session.userId,
+        action: 'CASE_CREATED',
+        entityType: 'Case',
+        entityId: caseRecord.id,
+        after: {
+          reference: caseRecord.reference,
+          stage: caseRecord.stage,
+          valuationType: caseRecord.valuationType,
+        } as any,
       },
     })
 

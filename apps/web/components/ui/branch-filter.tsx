@@ -45,15 +45,15 @@ export function BranchFilter({
   if (branches.length === 0) return null
 
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor={queryKey} className="text-xs font-medium uppercase tracking-wide text-gray-500">
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.28)]">
+      <label htmlFor={queryKey} className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
         {label}
       </label>
       <select
         id={queryKey}
         value={searchParams.get(queryKey) ?? ''}
         onChange={(e) => setBranch(e.target.value)}
-        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
       >
         <option value="">{allLabel}</option>
         {branches.map((branch) => (

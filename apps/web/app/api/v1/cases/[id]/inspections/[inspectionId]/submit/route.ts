@@ -3,15 +3,21 @@ import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
+import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 
 export const POST = withAuth(async (req: AuthedRequest, ctx) => {
   try {
     requireRole(req.session.role, ['managing_partner', 'valuer', 'field_officer'])
     const { id: caseId, inspectionId } = await ctx.params as { id: string; inspectionId: string }
+    const scopedBranchId = await resolveScopedBranchId(req.session)
 
     const caseRecord = await prisma.case.findFirst({
-      where: { id: caseId, firmId: req.session.firmId },
-      select: { id: true, stage: true },
+      where: {
+        id: caseId,
+        firmId: req.session.firmId,
+        ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
+      },
+      select: { id: true, stage: true, branchId: true },
     })
     if (!caseRecord) throw Errors.NOT_FOUND('Case')
 
@@ -36,6 +42,22 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         data: { stage: 'inspection_completed' },
       })
     }
+
+    await prisma.auditLog.create({
+      data: {
+        firmId: req.session.firmId,
+        userId: req.session.userId,
+        action: 'CASE_INSPECTION_SUBMITTED',
+        entityType: 'Case',
+        entityId: caseId,
+        after: {
+          inspectionId: updated.id,
+          status: updated.status,
+          submittedAt: updated.submittedAt?.toISOString() ?? null,
+          branchId: caseRecord.branchId,
+        } as any,
+      },
+    })
 
     return ok(updated)
   } catch (err) {

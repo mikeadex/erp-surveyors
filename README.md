@@ -1,12 +1,16 @@
 # Valuation OS
 
-Multi-tenant valuation operations platform for estate surveying firms. The repo is a pnpm/Turborepo monorepo with:
+Valuation OS is a multi-tenant operations platform for estate surveying and valuation firms. It combines a web control plane for office operations with a mobile app for field-facing workflows, all backed by shared business rules, shared types, and a single PostgreSQL data model.
 
-- `apps/web`: Next.js web app for firm operations, admin, case handling, billing, and reporting
-- `apps/mobile`: Expo mobile app for field and follow-up workflows
+## Repo Structure
+
+- `apps/web`: Next.js 15 web app for firm admin, CRM, property registry, cases, inspections, billing, documents, and reporting surfaces
+- `apps/mobile`: Expo mobile app for login, dashboard, cases, inspections, notifications, and profile flows
 - `packages/types`: shared TypeScript contracts
-- `packages/utils`: shared validators, formatters, and workflow rules
-- `packages/api`: shared API client utilities
+- `packages/utils`: shared validators, formatters, stage rules, and schema helpers
+- `packages/api`: shared API client utilities used by mobile
+- `prisma`: root Prisma schema used by the monorepo
+- `tests`: manual module verification guides
 
 ## Stack
 
@@ -14,134 +18,279 @@ Multi-tenant valuation operations platform for estate surveying firms. The repo 
 - React 18
 - Expo / React Native
 - Prisma + PostgreSQL
-- JWT auth with refresh tokens
+- JWT auth with rotating refresh tokens
 - pnpm workspaces + Turborepo
+- AWS S3 / Cloudflare R2 compatible storage for documents and inspection media
 
-## Local Setup
+## Core Functionalities
 
-1. Copy `.env.example` to `.env` and fill in the required values.
-2. Install dependencies:
+### Module A: Firm, Auth, and Team
+
+- multi-tenant firm model with branch-aware access control
+- signup, login, refresh, logout, password reset, and invite acceptance
+- managing partner, admin, valuer, reviewer, finance, and field officer roles
+- branch-aware team invitation and staff management
+- mobile auth guard, login, reset-password, and profile/password change
+
+Key files:
+
+- [apps/web/lib/auth/session.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/session.ts)
+- [apps/web/lib/auth/branch-scope.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/branch-scope.ts)
+- [apps/web/app/(dashboard)/team/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/team/page.tsx)
+- [apps/mobile/app/_layout.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/_layout.tsx)
+
+### Module B: CRM
+
+- branch-aware client ownership inside a firm
+- soft archive / restore for clients
+- tags, notes, duplicate review, saved views, branch filters
+- inline contact management on the client detail page
+- modal create/edit flows aligned with the current shell styling
+
+Key files:
+
+- [apps/web/app/(dashboard)/clients/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/page.tsx)
+- [apps/web/app/(dashboard)/clients/[id]/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/[id]/page.tsx)
+- [apps/web/app/api/v1/clients/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/clients/route.ts)
+
+### Module C: Property Registry and Comparables
+
+- property registry with search, filters, notes, duplicate review, archive / restore
+- comparable capture and list/search workflows
+- nearby comparable suggestions from property detail
+- create flows for properties and comparables now open in blurred modals
+
+Key files:
+
+- [apps/web/app/(dashboard)/properties/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/properties/page.tsx)
+- [apps/web/app/(dashboard)/properties/[id]/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/properties/[id]/page.tsx)
+- [apps/web/app/(dashboard)/comparables/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/comparables/page.tsx)
+
+### Module D: Case and Instruction Management
+
+- branch-aware case creation and lifecycle management
+- modal create flow for new cases
+- assignment, due date, fees, internal notes, and case checklist
+- activity feed for case updates, notes, checklist changes, inspection events, and stage progress
+- responsive cases list with mobile filter pop-out and card layout
+
+Key files:
+
+- [apps/web/app/(dashboard)/cases/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/page.tsx)
+- [apps/web/app/(dashboard)/cases/[id]/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/[id]/page.tsx)
+- [apps/web/app/api/v1/cases/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/cases/route.ts)
+
+### Module E: Inspection Workflow
+
+- inspection draft and submit flow
+- full inspection form for occupancy, location, condition, services, summary, and notes
+- signed inspection photo upload flow with presigned URLs
+- inspection media list, confirm, signed download, and delete
+- photo gallery integrated into the inspection workspace and case detail page
+
+Key files:
+
+- [apps/web/app/(dashboard)/cases/[id]/inspection/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/[id]/inspection/page.tsx)
+- [apps/web/components/inspections/inspection-form.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/components/inspections/inspection-form.tsx)
+- [apps/web/components/inspections/inspection-media-manager.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/components/inspections/inspection-media-manager.tsx)
+- [apps/web/app/api/v1/cases/[id]/inspections/[inspectionId]/media/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/cases/[id]/inspections/[inspectionId]/media/route.ts)
+
+### Additional Operational Areas
+
+- dashboard summaries and cases-by-stage reporting
+- invoices with responsive list/search/filter workflows
+- documents register and signed downloads
+- audit trail
+- notifications feed
+- mobile tabs for dashboard, cases, inspections, notifications, and profile
+
+## Tenant and Branch Model
+
+The hard security boundary is the firm.
+
+- every tenant-scoped record belongs to a `firmId`
+- branches are internal operating units inside a firm, not separate tenants
+- managing partners are firm-wide
+- non-managing-partner staff are branch-related and branch-scoped
+- authenticated APIs can use tenant helpers in [apps/web/lib/api/with-tenant.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/api/with-tenant.ts) and [apps/web/lib/db/tenant.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/db/tenant.ts)
+- cross-record integrity is enforced through ownership checks in [apps/web/lib/db/ownership.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/db/ownership.ts)
+
+## Setup Guide
+
+### 1. Prerequisites
+
+- Node.js 20+
+- pnpm 9+
+- PostgreSQL running locally or remotely
+- Xcode simulator if you want to run iOS mobile locally
+
+### 2. Install dependencies
 
 ```bash
 pnpm install
 ```
 
-3. Generate the Prisma client and sync the database:
+### 3. Configure environment
+
+Use the root example file as the source of truth:
+
+- [/.env.example](/Users/michaeladeleye/Documents/product/ERP Surveyors/.env.example)
+
+For local web development, copy those values into:
+
+- [apps/web/.env.local](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/.env.local)
+
+Minimum required variables:
+
+- `DATABASE_URL`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `NEXT_PUBLIC_APP_URL`
+
+For inspection/document upload and signed asset access:
+
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_BUCKET_NAME`
+- `S3_REGION`
+- `S3_ENDPOINT` if using Cloudflare R2 or another S3-compatible provider
+
+Optional public-read fallback variables:
+
+- `S3_PUBLIC_URL`
+- `CLOUDFLARE_R2_PUBLIC_URL`
+
+For mobile local development:
+
+- `EXPO_PUBLIC_API_URL`
+- `EXPO_PUBLIC_EAS_PROJECT_ID` if you want push-token registration on device builds
+
+The mobile app currently falls back to `http://localhost:3000` when `EXPO_PUBLIC_API_URL` is not set, which is fine for a simulator on the same machine.
+
+### 4. Generate Prisma client and sync the database
+
+From the repo root:
 
 ```bash
 pnpm db:generate
 pnpm db:push
 ```
 
-4. Start the apps:
+If you prefer app-scoped commands:
+
+```bash
+pnpm -C apps/web db:generate
+pnpm -C apps/web db:push
+```
+
+### 5. Start development
+
+Run everything:
 
 ```bash
 pnpm dev
 ```
 
-Useful commands:
+Or run apps separately:
+
+```bash
+pnpm -C apps/web dev
+pnpm -C apps/mobile start
+```
+
+### 6. Typecheck before pushing
 
 ```bash
 pnpm typecheck
 pnpm -C apps/web typecheck
 pnpm -C apps/mobile typecheck
+pnpm -C packages/utils typecheck
+pnpm -C packages/types typecheck
 pnpm -C packages/api typecheck
-pnpm db:studio
 ```
 
-## Environment
+### 7. Useful local commands
 
-Important variables are defined in [.env.example](/Users/michaeladeleye/Documents/product/ERP Surveyors/.env.example):
+```bash
+pnpm db:studio
+pnpm -C apps/mobile ios
+pnpm -C apps/mobile android
+```
 
-- `DATABASE_URL`
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
-- `JWT_ACCESS_EXPIRES_IN`
-- `JWT_REFRESH_EXPIRES_IN`
-- `NEXT_PUBLIC_APP_URL`
-- `EXPO_PUBLIC_API_URL`
-- `EXPO_PUBLIC_EAS_PROJECT_ID` for Expo push token registration on device builds
+## Web UI Notes
 
-In production, JWT secrets must be explicitly configured. The app will not fall back to development secrets.
+- the web shell uses a calmer neutral palette with Nigerian-green accents
+- desktop sidebar is collapsible
+- mobile navigation opens as a right-side full-width sheet
+- major list pages now use the same responsive pattern:
+  - inline filters on desktop
+  - compact filter trigger + pop-out sheet on mobile
+  - stacked mobile cards instead of squeezed tables
 
-## Multi-Tenant Model
+## Current Create/Edit UX Pattern
 
-The hard security boundary is the firm.
+The following creation flows now open in blurred modals instead of forcing dedicated `/new` navigation from the list page:
 
-- Every tenant-scoped record belongs to a `firmId`
-- Authenticated API routes receive tenant context through [apps/web/lib/api/with-tenant.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/api/with-tenant.ts)
-- Tenant-aware queries should use [apps/web/lib/db/tenant.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/db/tenant.ts) instead of raw Prisma where practical
-- Cross-tenant foreign keys are validated before writes through ownership helpers in [apps/web/lib/db/ownership.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/db/ownership.ts)
+- clients
+- properties
+- comparables
+- cases
 
-## Branch Model
+The same calmer form language is also being used across edit/admin surfaces such as client management, team invite, and inspection workflows.
 
-Branches are internal operating units inside a firm. They are not separate tenants.
+## Storage and Media
 
-- `firmId` remains the security boundary
-- `branchId` is an operational scope inside the firm
-- Managing partners are firm-wide and are not assigned to a branch
-- Other staff roles are branch-related and should be assigned to a branch
-- Branch-scoped users can only access branch-owned records in their assigned branch
-- Managing partners can work across branches and optionally filter by branch
+Inspection photos and document downloads now support signed storage access.
 
-Branch/session policy is implemented in [apps/web/lib/auth/branch-scope.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/branch-scope.ts) and branch-aware JWT payloads are issued from [apps/web/lib/auth/session.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/session.ts).
+- inspection uploads use presigned `PUT` URLs
+- image and document reads can use signed `GET` URLs when credentials are configured
+- when only a public asset base URL exists, the app can still render assets through redirect routes
+- if storage credentials are missing, upload UI stays honest and explains why upload is unavailable
 
-## Client Ownership
+Relevant files:
 
-Clients are now branch-aware inside a firm.
+- [apps/web/lib/storage/s3.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/storage/s3.ts)
+- [apps/web/app/api/v1/media/[...key]/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/media/[...key]/route.ts)
+- [apps/web/app/api/v1/documents/[id]/download/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/documents/[id]/download/route.ts)
 
-- Every client still belongs to a `firmId`
-- Clients also carry a `branchId` to represent the branch that owns the relationship
-- Managing partners can create, view, and filter clients across branches
-- Branch-scoped staff can only access clients in their assigned branch
-- Case creation only offers clients that are visible to the current branch scope
-- If only one branch is visible during client creation, it is preselected automatically
+## Mobile Coverage Today
 
-Client branch ownership is enforced in [apps/web/app/api/v1/clients/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/clients/route.ts), [apps/web/app/api/v1/clients/[id]/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/clients/[id]/route.ts), and the related client contact/case subroutes.
+The mobile app currently includes:
 
-## Current Branch-Aware UX
+- auth routing
+- login
+- password reset
+- dashboard tab
+- cases tab
+- inspections tab
+- notifications tab
+- profile tab
 
-The following web screens now expose branch-aware behavior:
+Key files:
 
-- Team management in [apps/web/app/(dashboard)/team/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/team/page.tsx)
-- Client listing in [apps/web/app/(dashboard)/clients/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/page.tsx)
-- Client creation in [apps/web/app/(dashboard)/clients/new/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/new/page.tsx)
-- Client detail in [apps/web/app/(dashboard)/clients/[id]/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/clients/[id]/page.tsx)
-- Case listing in [apps/web/app/(dashboard)/cases/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/page.tsx)
-- Case creation in [apps/web/app/(dashboard)/cases/new/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/cases/new/page.tsx)
-- Dashboard summary in [apps/web/app/(dashboard)/dashboard/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/dashboard/page.tsx)
-- Invoice listing in [apps/web/app/(dashboard)/invoices/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/invoices/page.tsx)
-- Inspection listing in [apps/web/app/(dashboard)/inspections/page.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/(dashboard)/inspections/page.tsx)
+- [apps/mobile/app/(auth)/login.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(auth)/login.tsx)
+- [apps/mobile/app/(auth)/reset-password.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(auth)/reset-password.tsx)
+- [apps/mobile/app/(tabs)/cases.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(tabs)/cases.tsx)
+- [apps/mobile/app/(tabs)/inspections.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(tabs)/inspections.tsx)
+- [apps/mobile/app/(tabs)/profile.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(tabs)/profile.tsx)
 
-Shared branch filter UI lives in [apps/web/components/ui/branch-filter.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/components/ui/branch-filter.tsx).
+## Manual Verification Guides
 
-## Authentication
+Module-specific manual references live in:
 
-- Access tokens are short-lived JWTs
-- Refresh tokens are rotated and stored on the user record
-- Login, signup, invite acceptance, and refresh all issue branch-aware access tokens
-- Password policy is enforced server-side for signup, invite acceptance, password reset, and password change
+- [tests/module-a.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-a.md)
+- [tests/module-b.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-b.md)
+- [tests/module-c.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-c.md)
+- [tests/module-d.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-d.md)
 
-Key auth files:
+## Current Gaps
 
-- [apps/web/lib/auth/session.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/session.ts)
-- [apps/web/lib/auth/password.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/auth/password.ts)
-- [apps/web/lib/api/with-auth.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/api/with-auth.ts)
+- top-level reporting is still lighter than the full product vision
+- mobile inspection capture still needs the native camera/upload pass to match the web upload flow
+- some deeper routes still use direct Prisma firm checks instead of the newer tenant wrapper pattern
 
-## Mobile Module A Coverage
+## Repository Workflow
 
-The mobile app now covers the core Module A flows:
-
-- Session-aware routing and tab protection in [apps/mobile/app/_layout.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/_layout.tsx)
-- Login in [apps/mobile/app/(auth)/login.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(auth)/login.tsx)
-- Password reset request and confirmation in [apps/mobile/app/(auth)/reset-password.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(auth)/reset-password.tsx)
-- Profile, branch/firm context, and password change in [apps/mobile/app/(tabs)/profile.tsx](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/app/(tabs)/profile.tsx)
-- Expo push token registration in [apps/mobile/lib/notifications.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/lib/notifications.ts)
-
-The mobile client stores and refreshes bearer tokens through [apps/mobile/lib/storage.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/lib/storage.ts) and [packages/api/src/client.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/packages/api/src/client.ts).
-
-## Notes
-
-- The repo currently has strong tenant and branch enforcement in the main operational modules, but some deeper case/report/inspection subroutes still rely on explicit firm checks instead of the newer `withTenant + req.db` pattern.
-- Clients are now branch-owned within a firm. Properties remain tenant-level for now, while cases and downstream operational records continue to carry branch ownership.
-- Legacy clients that could not be assigned safely during automatic backfill remain visible to managing partners until they are manually assigned to a branch.
+- `main` is the stable baseline
+- feature work is being done on `codex/*` branches
+- changes are pushed to GitHub and reviewed through draft PRs

@@ -65,52 +65,58 @@ export function NotificationsBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+        className="relative rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 shadow-[0_12px_26px_-22px_rgba(15,23,42,0.2)] transition-colors hover:border-brand-200 hover:text-slate-700"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+          <span className="absolute right-1.5 top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+        <div className="surface-panel absolute right-0 z-50 mt-3 w-[22rem] overflow-hidden rounded-[26px]">
+          <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+              <p className="mt-1 text-xs text-slate-500">Recent workflow activity across your firm.</p>
+            </div>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
                 disabled={loading}
-                className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-brand-700 transition-colors hover:border-brand-200 hover:bg-brand-50 disabled:opacity-50"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          <ul className="max-h-80 divide-y divide-gray-50 overflow-y-auto">
+          <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto px-2 py-2">
             {items.length === 0 ? (
-              <li className="px-4 py-8 text-center text-sm text-gray-400">
+              <li className="px-4 py-10 text-center text-sm text-slate-400">
                 No notifications yet
               </li>
             ) : (
               items.slice(0, 10).map((n) => (
                 <li
                   key={n.id}
-                  className={`flex gap-3 px-4 py-3 ${!n.readAt ? 'bg-blue-50/40' : ''}`}
+                  className={[
+                    'flex gap-3 rounded-2xl px-4 py-3.5',
+                    !n.readAt ? 'bg-brand-50/70' : 'hover:bg-white/90',
+                  ].join(' ')}
                 >
                   {!n.readAt && (
-                    <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
+                    <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-brand-500" />
                   )}
                   <div className={!n.readAt ? '' : 'pl-5'}>
-                    <p className="text-xs font-medium text-gray-900 leading-snug">{n.title}</p>
+                    <p className="text-sm font-medium leading-snug text-slate-900">{n.title}</p>
                     {n.body && (
-                      <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{n.body}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500 line-clamp-2">{n.body}</p>
                     )}
-                    <p className="mt-1 text-[10px] text-gray-400">{formatDate(n.createdAt)}</p>
+                    <p className="mt-2 text-[11px] text-slate-400">{formatDate(n.createdAt)}</p>
                   </div>
                 </li>
               ))

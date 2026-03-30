@@ -2,8 +2,14 @@ import { z } from 'zod'
 
 export const CreateInspectionSchema = z.object({
   inspectionDate: z.coerce.date().optional(),
-  address: z.string().min(1).max(400).optional(),
+  occupancy: z.string().max(100).optional(),
+  locationDescription: z.string().optional(),
+  externalCondition: z.string().optional(),
+  internalCondition: z.string().optional(),
+  services: z.string().optional(),
+  conditionSummary: z.string().optional(),
   notes: z.string().optional(),
+  offlineDraft: z.record(z.unknown()).optional(),
 })
 
 export const SubmitInspectionSchema = z.object({

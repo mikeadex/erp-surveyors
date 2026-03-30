@@ -144,16 +144,37 @@ curl -b cookies.txt -X DELETE http://localhost:3000/api/v1/cases/<CASE_ID>/check
 ```
 **Expected:** `200` — item removed.
 
+## 16. Get Case Activity
+
+```bash
+curl -b cookies.txt "http://localhost:3000/api/v1/cases/<CASE_ID>/activity?page=1&pageSize=20"
+```
+**Expected:** `200` — recent case activity including stage changes, notes, and checklist actions.
+
+## 17. Overdue Cases
+
+```bash
+curl -b cookies.txt "http://localhost:3000/api/v1/cases/overdue?page=1&pageSize=20"
+```
+**Expected:** `200` for `managing_partner` / `admin` — only overdue cases returned.
+
+## 18. Dashboard Cases By Stage
+
+```bash
+curl -b cookies.txt http://localhost:3000/api/v1/dashboard/cases-by-stage
+```
+**Expected:** `200` — array of `{ stage, count }`.
+
 ---
 
-## 16. Delete Client with Cases (blocked — deferred from Module B)
+## 19. Delete Client with Cases (blocked — deferred from Module B)
 
 ```bash
 curl -b cookies.txt -X DELETE http://localhost:3000/api/v1/clients/<CLIENT_ID>
 ```
 **Expected:** `409 CONFLICT — Cannot delete a client with active cases`
 
-## 17. Delete Property with Cases (blocked — deferred from Module C)
+## 20. Delete Property with Cases (blocked — deferred from Module C)
 
 ```bash
 curl -b cookies.txt -X DELETE http://localhost:3000/api/v1/properties/<PROPERTY_ID>

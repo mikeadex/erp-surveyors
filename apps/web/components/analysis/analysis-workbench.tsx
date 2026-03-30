@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 type Analysis = {
   id: string
@@ -27,6 +28,22 @@ type CaseComparable = {
     salePrice: unknown
     propertyUse: string | null
   }
+}
+
+type SuggestedComparable = {
+  id: string
+  score: number
+  comparableType: string
+  address: string
+  city: string | null
+  state: string | null
+  propertyUse: string | null
+  tenureType: string | null
+  salePrice: unknown
+  rentalValue: unknown
+  transactionDate: Date | null
+  isVerified: boolean
+  createdAt: Date
 }
 
 const schema = z.object({
@@ -58,12 +75,15 @@ interface Props {
   caseId: string
   analysis: Analysis | null
   comparables: CaseComparable[]
+  suggestedComparables: SuggestedComparable[]
 }
 
-export function AnalysisWorkbench({ caseId, analysis, comparables }: Props) {
+export function AnalysisWorkbench({ caseId, analysis, comparables, suggestedComparables }: Props) {
   const router = useRouter()
   const [error, setError] = useState('')
   const [completing, setCompleting] = useState(false)
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
   const isComplete = analysis?.status === 'complete'
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -118,6 +138,38 @@ export function AnalysisWorkbench({ caseId, analysis, comparables }: Props) {
       router.refresh()
     }
     setCompleting(false)
+  }
+
+  const attachComparable = async (comparableId: string) => {
+    setLinkingId(comparableId)
+    setError('')
+    const res = await fetch(`/api/v1/cases/${caseId}/comparables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comparableId }),
+    })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setError(json?.error?.message ?? 'Failed to attach comparable')
+    } else {
+      router.refresh()
+    }
+    setLinkingId(null)
+  }
+
+  const removeComparable = async (comparableId: string) => {
+    setRemovingId(comparableId)
+    setError('')
+    const res = await fetch(`/api/v1/cases/${caseId}/comparables/${comparableId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setError(json?.error?.message ?? 'Failed to remove comparable')
+    } else {
+      router.refresh()
+    }
+    setRemovingId(null)
   }
 
   return (
@@ -220,6 +272,7 @@ export function AnalysisWorkbench({ caseId, analysis, comparables }: Props) {
                   <th className="pb-2 pr-4">Use</th>
                   <th className="pb-2 pr-4">Sale Price</th>
                   <th className="pb-2">Weight</th>
+                  {!isComplete && <th className="pb-2 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -231,10 +284,81 @@ export function AnalysisWorkbench({ caseId, analysis, comparables }: Props) {
                       {cc.comparable.salePrice != null ? `₦${Number(cc.comparable.salePrice).toLocaleString()}` : '—'}
                     </td>
                     <td className="py-2 text-gray-500">{cc.weight != null ? String(cc.weight) : '—'}</td>
+                    {!isComplete && (
+                      <td className="py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => removeComparable(cc.comparable.id)}
+                          disabled={removingId === cc.comparable.id}
+                          className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                        >
+                          {removingId === cc.comparable.id ? 'Removing…' : 'Remove'}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {suggestedComparables.length > 0 && !isComplete && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Suggested Comparables</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Ranked from the property profile so you can attach them directly to this case.
+              </p>
+            </div>
+            <Link href={`/comparables?state=${encodeURIComponent(String(suggestedComparables[0]?.state ?? ''))}`} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              Browse all comparables
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {suggestedComparables.map((comp) => (
+              <div key={comp.id} className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 p-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900">{comp.address}</p>
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+                      Score {comp.score}
+                    </span>
+                    {comp.isVerified && (
+                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700">
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {[comp.city, comp.state, comp.propertyUse].filter(Boolean).join(' • ')}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-700">
+                    {comp.salePrice != null
+                      ? `₦${Number(comp.salePrice).toLocaleString()}`
+                      : comp.rentalValue != null
+                        ? `₦${Number(comp.rentalValue).toLocaleString()}/yr`
+                        : 'No pricing yet'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <Link href={`/comparables/${comp.id}`} className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                    View
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => attachComparable(comp.id)}
+                    disabled={linkingId === comp.id}
+                    className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {linkingId === comp.id ? 'Attaching…' : 'Attach'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

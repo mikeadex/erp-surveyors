@@ -5,6 +5,7 @@ import { Errors } from '@/lib/api/errors'
 import { UpdateCaseSchema } from '@valuation-os/utils'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import { assertBranchBelongsToFirm, assertUserBelongsToFirm } from '@/lib/db/ownership'
+import { prisma } from '@/lib/db/prisma'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
@@ -49,6 +50,14 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
 
     const existing = await req.db.case.findUnique({
       where: { id, ...(currentBranchScope ? { branchId: currentBranchScope } : {}) },
+      select: {
+        id: true,
+        stage: true,
+        dueDate: true,
+        assignedValuerId: true,
+        assignedReviewerId: true,
+        branchId: true,
+      },
     })
     if (!existing) throw Errors.NOT_FOUND('Case')
 
@@ -100,6 +109,29 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
       },
     })
     if (!updated) throw Errors.NOT_FOUND('Case')
+
+    await prisma.auditLog.create({
+      data: {
+        firmId: req.firmId,
+        userId: req.session.userId,
+        action: 'CASE_UPDATED',
+        entityType: 'Case',
+        entityId: id,
+        before: {
+          stage: existing.stage,
+          dueDate: existing.dueDate?.toISOString() ?? null,
+          assignedValuerId: existing.assignedValuerId,
+          assignedReviewerId: existing.assignedReviewerId,
+          branchId: existing.branchId,
+        } as any,
+        after: {
+          stage: updated.stage,
+          dueDate: updated.dueDate?.toISOString() ?? null,
+          branchId: updated.branchId,
+        } as any,
+      },
+    })
+
     return ok(updated)
   } catch (err) {
     return errorResponse(err)

@@ -20,9 +20,9 @@ export function TeamActions({ branches }: TeamActionsProps) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
+        className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_-20px_rgba(11,106,56,0.6)] transition-colors hover:bg-brand-700"
       >
-        <UserPlus className="h-3.5 w-3.5" />
+        <UserPlus className="h-4 w-4" />
         Invite member
       </button>
       {open && <InviteUserForm branches={branches} onClose={() => setOpen(false)} />}

@@ -11,6 +11,7 @@ import type { CaseStage } from '@valuation-os/types'
 import { assertRecordBranchAccess, canAccessAllBranches } from '@/lib/auth/branch-scope'
 import { ClientManagementPanel } from '@/components/clients/client-management-panel'
 import { ClientContactsPanel } from '@/components/clients/client-contacts-panel'
+import { sanitizeRichTextHtml } from '@/lib/editor/rich-text'
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -144,9 +145,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                     Relationship Notes
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                    {client.notes}
-                  </p>
+                  <div
+                    className="prose prose-sm mt-2 max-w-none text-slate-700 prose-headings:mb-2 prose-headings:mt-0 prose-headings:text-slate-900 prose-p:my-2 prose-p:leading-6 prose-hr:my-4 prose-ul:my-2 prose-ul:pl-5"
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(client.notes) }}
+                  />
                 </div>
               )}
 

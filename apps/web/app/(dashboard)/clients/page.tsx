@@ -1,6 +1,4 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { Plus } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import { verifyAccessToken } from '@/lib/auth/session'
 import { cookies } from 'next/headers'
@@ -8,10 +6,11 @@ import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { ClientsTable } from '@/components/clients/clients-table'
 import { ClientSavedViews } from '@/components/clients/client-saved-views'
+import { ClientsFiltersBar } from '@/components/clients/clients-filters-bar'
 import { Pagination } from '@/components/ui/pagination'
 import { canAccessAllBranches } from '@/lib/auth/branch-scope'
-import { BranchFilter } from '@/components/ui/branch-filter'
 import { buildClientSearchWhere } from '@/lib/crm/client-records'
+import { CreateClientModalTrigger } from '@/components/clients/create-client-modal-trigger'
 
 interface SearchParams {
   page?: string
@@ -151,6 +150,11 @@ export default async function ClientsPage({
   ])
 
   const totalPages = Math.ceil(total / pageSize)
+  const visibleBranches = canAccessAllBranches(session.role)
+    ? branches
+    : branches.filter((branch) => branch.id === session.branchId)
+  const initialClientBranchId =
+    session.branchId ?? (visibleBranches.length === 1 ? visibleBranches[0]?.id : undefined)
   const savedViews = [
     {
       key: 'active',
@@ -201,71 +205,43 @@ export default async function ClientsPage({
   return (
     <>
       <Header user={user} title="Clients" />
-      <div className="p-6 space-y-4">
+      <div className="space-y-5 px-4 pb-6 lg:px-6">
+        <section className="surface-card rounded-[30px] px-5 py-5 lg:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Relationship Hub
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                Manage client relationships, ownership, and intake readiness.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Search by identity, branch, and relationship notes while keeping the CRM aligned with the calmer dashboard shell.
+              </p>
+            </div>
+            <CreateClientModalTrigger
+              branches={visibleBranches}
+              initialBranchId={initialClientBranchId}
+              canSelectBranch={canAccessAllBranches(session.role)}
+            />
+          </div>
+        </section>
+
         <ClientSavedViews views={savedViews} />
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex flex-1 flex-col gap-3">
-            <form className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.75fr))_minmax(0,0.9fr)_auto_auto]" method="GET">
-              {scopedBranchId && <input type="hidden" name="branchId" value={scopedBranchId} />}
-              <input
-                type="search"
-                placeholder="Search name, email, phone, RC number, address, notes, tags, or branch…"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                name="search"
-                defaultValue={search}
-              />
-              <select
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
-                name="type"
-                defaultValue={type ?? ''}
-              >
-                <option value="">All types</option>
-                <option value="individual">Individual</option>
-                <option value="corporate">Corporate</option>
-              </select>
-              <select
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
-                name="status"
-                defaultValue={status}
-              >
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-                <option value="all">All</option>
-              </select>
-              <input
-                type="search"
-                placeholder="Tag…"
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-40"
-                name="tag"
-                defaultValue={tag}
-              />
-              <button
-                type="submit"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-              >
-                Apply
-              </button>
-              {(search || type || tag || status !== 'active') && (
-                <Link
-                  href={scopedBranchId ? `/clients?branchId=${scopedBranchId}` : '/clients'}
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Reset
-                </Link>
-              )}
-            </form>
-            {canAccessAllBranches(session.role) && (
-              <BranchFilter branches={branches} allLabel="All client branches" clearKeys={['page', 'branchState']} />
-            )}
+            <ClientsFiltersBar
+              search={search}
+              type={type}
+              status={status}
+              tag={tag}
+              branchId={scopedBranchId}
+              branchState={branchState}
+              canAccessAllBranches={canAccessAllBranches(session.role)}
+              branches={branches}
+            />
           </div>
-          <Link
-            href="/clients/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            New Client
-          </Link>
         </div>
 
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

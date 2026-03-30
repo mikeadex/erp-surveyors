@@ -12,7 +12,7 @@ const UpdateSchema = z.object({
 export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
   try {
     requireRole(req.session.role, ['managing_partner', 'valuer'])
-    const { id, compId } = await ctx.params as { id: string; compId: string }
+    const { id, comparableId } = await ctx.params as { id: string; comparableId: string }
     const body = UpdateSchema.parse(await req.json())
 
     const caseRecord = await prisma.case.findFirst({
@@ -21,14 +21,15 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
     })
     if (!caseRecord) throw Errors.NOT_FOUND('Case')
 
-    const item = await prisma.caseComparable.findFirst({
-      where: { id: compId, caseId: id },
+    const existing = await prisma.caseComparable.findFirst({
+      where: { caseId: id, comparableId },
+      select: { id: true },
     })
-    if (!item) throw Errors.NOT_FOUND('Case comparable')
+    if (!existing) throw Errors.NOT_FOUND('Comparable link')
 
-    const data = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined))
+    const data = Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined))
     const updated = await prisma.caseComparable.update({
-      where: { id: compId },
+      where: { id: existing.id },
       data,
       include: { comparable: true },
     })
@@ -41,8 +42,8 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
 
 export const DELETE = withAuth(async (req: AuthedRequest, ctx) => {
   try {
-    requireRole(req.session.role, ['managing_partner', 'valuer'])
-    const { id, compId } = await ctx.params as { id: string; compId: string }
+    requireRole(req.session.role, ['managing_partner', 'valuer', 'admin'])
+    const { id, comparableId } = await ctx.params as { id: string; comparableId: string }
 
     const caseRecord = await prisma.case.findFirst({
       where: { id, firmId: req.session.firmId },
@@ -50,13 +51,14 @@ export const DELETE = withAuth(async (req: AuthedRequest, ctx) => {
     })
     if (!caseRecord) throw Errors.NOT_FOUND('Case')
 
-    const item = await prisma.caseComparable.findFirst({
-      where: { id: compId, caseId: id },
+    const existing = await prisma.caseComparable.findFirst({
+      where: { caseId: id, comparableId },
+      select: { id: true },
     })
-    if (!item) throw Errors.NOT_FOUND('Case comparable')
+    if (!existing) throw Errors.NOT_FOUND('Comparable link')
 
-    await prisma.caseComparable.delete({ where: { id: compId } })
-    return ok({ message: 'Comparable detached from case' })
+    await prisma.caseComparable.delete({ where: { id: existing.id } })
+    return ok({ message: 'Comparable removed from case' })
   } catch (err) {
     return errorResponse(err)
   }

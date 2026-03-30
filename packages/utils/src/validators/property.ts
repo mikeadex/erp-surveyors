@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+const trimmedOptionalString = (max: number) =>
+  z.string().trim().max(max).optional().transform((value) => value || undefined)
+
 const TenureTypeSchema = z.enum([
   'statutory_right_of_occupancy',
   'customary_right_of_occupancy',
@@ -19,17 +22,17 @@ const PropertyUseSchema = z.enum([
 ])
 
 export const CreatePropertySchema = z.object({
-  address: z.string().min(1).max(400),
-  city: z.string().min(1).max(100),
-  state: z.string().min(1).max(100),
-  localGovernment: z.string().max(100).optional(),
+  address: z.string().trim().min(1).max(400),
+  city: z.string().trim().min(1).max(100),
+  state: z.string().trim().min(1).max(100),
+  localGovernment: trimmedOptionalString(100),
   propertyUse: PropertyUseSchema,
   tenureType: TenureTypeSchema,
   plotSize: z.number().positive().optional(),
-  plotSizeUnit: z.string().max(20).optional(),
-  description: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  plotSizeUnit: z.enum(['sqm', 'sqft', 'hectare', 'acres']).optional(),
+  description: trimmedOptionalString(4000),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
 })
 
 export const UpdatePropertySchema = CreatePropertySchema.partial()

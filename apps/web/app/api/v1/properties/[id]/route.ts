@@ -4,12 +4,13 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { UpdatePropertySchema } from '@valuation-os/utils'
+import { normalizePropertyPayload } from '@/lib/properties/property-records'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
     const { id } = await ctx.params
 
-    const property = await req.db.property.findUnique({
+    const property = await req.db.property.findFirst({
       where: { id },
       include: {
         cases: {
@@ -36,16 +37,17 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
     const { id } = await ctx.params as { id: string }
     const body = UpdatePropertySchema.parse(await req.json())
+    const normalized = normalizePropertyPayload(body)
 
-    const existing = await req.db.property.findUnique({ where: { id } })
+    const existing = await req.db.property.findFirst({ where: { id, deletedAt: null } })
     if (!existing) throw Errors.NOT_FOUND('Property')
 
-    const data = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined))
+    const data = Object.fromEntries(Object.entries(normalized).filter(([, v]) => v !== undefined))
     await req.db.property.updateMany({
-      where: { id },
+      where: { id, deletedAt: null },
       data: data as Record<string, unknown>,
     })
-    const property = await req.db.property.findUnique({ where: { id } })
+    const property = await req.db.property.findFirst({ where: { id, deletedAt: null } })
     if (!property) throw Errors.NOT_FOUND('Property')
     return ok(property)
   } catch (err) {
@@ -58,15 +60,18 @@ export const DELETE = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     requireRole(req.session.role, ['managing_partner', 'admin'])
     const { id } = await ctx.params as { id: string }
 
-    const existing = await req.db.property.findUnique({
-      where: { id },
+    const existing = await req.db.property.findFirst({
+      where: { id, deletedAt: null },
       include: { _count: { select: { cases: true } } },
     })
     if (!existing) throw Errors.NOT_FOUND('Property')
     if (existing._count.cases > 0) throw Errors.CONFLICT('Cannot delete a property with active cases')
 
-    await req.db.property.deleteMany({ where: { id } })
-    return ok({ message: 'Property deleted' })
+    await req.db.property.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    })
+    return ok({ message: 'Property archived' })
   } catch (err) {
     return errorResponse(err)
   }

@@ -24,25 +24,25 @@ export function Pagination({ page, totalPages, total, pageSize }: PaginationProp
   const to = Math.min(page * pageSize, total)
 
   return (
-    <div className="flex items-center justify-between text-sm text-gray-600">
-      <span>
+    <div className="surface-card flex items-center justify-between rounded-[24px] px-4 py-3 text-sm text-slate-600">
+      <span className="font-medium">
         Showing {from}–{to} of {total}
       </span>
       <div className="flex items-center gap-1">
         <Link
           href={pageHref(page - 1)}
           aria-disabled={page <= 1}
-          className={`rounded-lg px-2 py-1.5 hover:bg-gray-100 ${page <= 1 ? 'pointer-events-none opacity-40' : ''}`}
+          className={`rounded-xl px-2.5 py-2 transition-colors hover:bg-slate-100 ${page <= 1 ? 'pointer-events-none opacity-40' : ''}`}
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
-        <span className="px-2">
+        <span className="px-2 text-slate-500">
           {page} / {totalPages}
         </span>
         <Link
           href={pageHref(page + 1)}
           aria-disabled={page >= totalPages}
-          className={`rounded-lg px-2 py-1.5 hover:bg-gray-100 ${page >= totalPages ? 'pointer-events-none opacity-40' : ''}`}
+          className={`rounded-xl px-2.5 py-2 transition-colors hover:bg-slate-100 ${page >= totalPages ? 'pointer-events-none opacity-40' : ''}`}
         >
           <ChevronRight className="h-4 w-4" />
         </Link>

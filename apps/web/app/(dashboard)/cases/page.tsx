@@ -1,6 +1,4 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { Plus } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import { verifyAccessToken } from '@/lib/auth/session'
 import { cookies } from 'next/headers'
@@ -11,6 +9,7 @@ import { CasesFilters } from '@/components/cases/cases-filters'
 import { Pagination } from '@/components/ui/pagination'
 import { canAccessAllBranches, resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import type { CaseStage } from '@valuation-os/types'
+import { CreateCaseModalTrigger } from '@/components/cases/create-case-modal-trigger'
 
 interface SearchParams {
   page?: string
@@ -62,7 +61,7 @@ export default async function CasesPage({
       : {}),
   }
 
-  const [user, branches] = await Promise.all([
+  const [user, branches, clients, properties, valuers] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.userId },
       select: { id: true, firstName: true, lastName: true, role: true, email: true },
@@ -71,6 +70,32 @@ export default async function CasesPage({
       where: { firmId: session.firmId, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
+    }),
+    prisma.client.findMany({
+      where: {
+        firmId: session.firmId,
+        deletedAt: null,
+        ...(session.branchId && !canAccessAllBranches(session.role) ? { branchId: session.branchId } : {}),
+      },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+    }),
+    prisma.property.findMany({
+      where: { firmId: session.firmId, deletedAt: null },
+      select: { id: true, address: true, city: true, state: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    }),
+    prisma.user.findMany({
+      where: {
+        firmId: session.firmId,
+        isActive: true,
+        ...(session.branchId && !canAccessAllBranches(session.role) ? { branchId: session.branchId } : {}),
+        role: { in: ['valuer', 'reviewer', 'managing_partner'] },
+      },
+      select: { id: true, firstName: true, lastName: true, role: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
     }),
   ])
   if (!user) redirect('/login')
@@ -100,19 +125,40 @@ export default async function CasesPage({
   return (
     <>
       <Header user={user} title="Cases" />
-      <div className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <Suspense>
-            <CasesFilters branches={visibleBranches} />
-          </Suspense>
-          <Link
-            href="/cases/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            New Case
-          </Link>
-        </div>
+      <div className="space-y-5 px-4 pb-6 lg:px-6">
+        <section className="surface-card rounded-[30px] px-5 py-5 lg:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Workflow Board
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                Track case progress, overdue risk, and assignment across the pipeline.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Search by reference and client, then narrow the pipeline by stage, assignment, and branch without losing the calmer shell language.
+              </p>
+            </div>
+            <CreateCaseModalTrigger
+              clients={clients}
+              properties={properties}
+              valuers={valuers}
+              branches={visibleBranches}
+            />
+          </div>
+        </section>
+
+        <Suspense>
+          <CasesFilters
+            branches={visibleBranches}
+            search={search}
+            stage={stage}
+            isOverdue={Boolean(isOverdue)}
+            assignedToMe={assignedToMe}
+            branchId={scopedBranchId ?? undefined}
+            canAccessAllBranches={canAccessAllBranches(session.role)}
+          />
+        </Suspense>
 
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <CasesTable cases={cases as any} />

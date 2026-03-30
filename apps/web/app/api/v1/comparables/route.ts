@@ -3,6 +3,7 @@ import { withTenant, type TenantRequest } from '@/lib/api/with-tenant'
 import { ok, created, errorResponse } from '@/lib/api/response'
 import { parsePagination, parseSearch } from '@/lib/api/pagination'
 import { CreateComparableSchema } from '@valuation-os/utils'
+import { buildComparableSearchWhere, normalizeComparablePayload } from '@/lib/comparables/comparable-records'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   try {
@@ -16,16 +17,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...(comparableType ? { comparableType: comparableType as any } : {}),
       ...(state ? { state } : {}),
-
-      ...(search
-        ? {
-            OR: [
-              { address: { contains: search, mode: 'insensitive' as const } },
-              { city: { contains: search, mode: 'insensitive' as const } },
-              { state: { contains: search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
+      ...(buildComparableSearchWhere(search) ?? {}),
     }
 
     const [items, total] = await Promise.all([
@@ -34,7 +26,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
         select: {
           id: true, comparableType: true, address: true, city: true,
           state: true, salePrice: true, rentalValue: true, transactionDate: true,
-          plotSize: true, buildingSize: true, source: true, createdAt: true,
+          plotSize: true, buildingSize: true, pricePerSqm: true, source: true, notes: true, isVerified: true, createdAt: true,
         },
         skip,
         take,
@@ -52,10 +44,11 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
     const body = CreateComparableSchema.parse(await req.json())
+    const normalized = normalizeComparablePayload(body)
 
     const comparable = await req.db.comparable.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: { ...(body as any), addedById: req.session.userId },
+      data: { ...(normalized as any), addedById: req.session.userId },
       select: {
         id: true, comparableType: true, address: true, city: true,
         state: true, createdAt: true,

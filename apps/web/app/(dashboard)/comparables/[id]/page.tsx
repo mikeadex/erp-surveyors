@@ -5,6 +5,7 @@ import { verifyAccessToken } from '@/lib/auth/session'
 import { Header } from '@/components/layout/header'
 import { formatDate, formatCurrency } from '@valuation-os/utils'
 import { CheckCircle2 } from 'lucide-react'
+import { sanitizeRichTextHtml } from '@/lib/editor/rich-text'
 
 function labelOf(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -160,7 +161,10 @@ export default async function ComparableDetailPage({ params }: { params: Promise
           {comp.notes && (
             <div className="mt-4 border-t border-gray-100 pt-4">
               <dt className="text-xs text-gray-500 mb-1">Notes</dt>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{comp.notes}</p>
+              <div
+                className="prose prose-sm max-w-none text-gray-700 prose-headings:mb-2 prose-headings:mt-0 prose-headings:text-gray-900 prose-p:my-2 prose-p:leading-6 prose-hr:my-4 prose-ul:my-2 prose-ul:pl-5"
+                dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(comp.notes) }}
+              />
             </div>
           )}
         </section>

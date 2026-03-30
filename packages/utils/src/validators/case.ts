@@ -4,6 +4,13 @@ const ValuationTypeSchema = z.enum([
   'market', 'rental', 'mortgage', 'insurance', 'probate', 'commercial', 'land',
 ])
 
+const DateTimeStringSchema = z.string().refine((value) => {
+  if (!value) return false
+
+  const parsed = new Date(value)
+  return !Number.isNaN(parsed.getTime())
+}, 'Enter a valid date and time')
+
 export const CreateCaseSchema = z.object({
   clientId: z.string().uuid(),
   propertyId: z.string().uuid(),
@@ -11,7 +18,7 @@ export const CreateCaseSchema = z.object({
   valuationPurpose: z.string().max(200).optional(),
   assignedValuerId: z.string().uuid(),
   assignedReviewerId: z.string().uuid().optional(),
-  dueDate: z.string().datetime().optional(),
+  dueDate: DateTimeStringSchema.optional(),
   feeAmount: z.number().positive().optional(),
   internalNotes: z.string().max(2000).optional(),
   branchId: z.string().uuid().optional(),
@@ -22,7 +29,7 @@ export const UpdateCaseSchema = z.object({
   assignedValuerId: z.string().uuid().optional(),
   assignedReviewerId: z.string().uuid().nullable().optional(),
   branchId: z.string().uuid().nullable().optional(),
-  dueDate: z.string().datetime().nullable().optional(),
+  dueDate: DateTimeStringSchema.nullable().optional(),
   feeAmount: z.number().positive().nullable().optional(),
   internalNotes: z.string().max(2000).optional(),
 })

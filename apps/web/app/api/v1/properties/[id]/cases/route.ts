@@ -9,7 +9,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     const { id } = await ctx.params as { id: string }
     const { skip, take, page, pageSize } = parsePagination(req)
 
-    const property = await req.db.property.findUnique({ where: { id } })
+    const property = await req.db.property.findFirst({ where: { id, deletedAt: null } })
     if (!property) throw Errors.NOT_FOUND('Property')
 
     const [items, total] = await Promise.all([

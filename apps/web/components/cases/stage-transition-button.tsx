@@ -43,7 +43,7 @@ export function StageTransitionButton({ caseId, currentStage }: StageTransitionB
       <button
         onClick={handleTransition}
         disabled={isPending}
-        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors"
+        className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_-20px_rgba(11,106,56,0.6)] transition hover:bg-brand-700 disabled:opacity-60"
       >
         {isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />

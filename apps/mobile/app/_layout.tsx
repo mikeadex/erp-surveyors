@@ -5,6 +5,9 @@ import { StatusBar } from 'expo-status-bar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '../global.css'
 import { setApiAuth, setApiBaseUrl } from '@valuation-os/api'
+import { flushInspectionMediaSyncs } from '@/lib/inspection-media-sync'
+import { flushInspectionDraftSyncs } from '@/lib/inspection-sync'
+import { flushInspectionSubmitSyncs } from '@/lib/inspection-submit-sync'
 import { registerForPushNotifications } from '@/lib/notifications'
 import {
   clearSession,
@@ -67,9 +70,29 @@ export default function RootLayout() {
     void registerForPushNotifications()
   }, [session.accessToken, session.userId, storageReady])
 
+  useEffect(() => {
+    if (!storageReady || !session.accessToken) return
+    void (async () => {
+      await flushInspectionDraftSyncs()
+      await flushInspectionMediaSyncs()
+      await flushInspectionSubmitSyncs()
+    })()
+  }, [session.accessToken, storageReady])
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="inspection/[caseId]/[inspectionId]"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="case/[caseId]"
+          options={{ headerShown: false }}
+        />
+      </Stack>
       {!storageReady ? (
         <View style={styles.loadingOverlay}>
           <Text style={styles.loadingTitle}>Valuation OS</Text>

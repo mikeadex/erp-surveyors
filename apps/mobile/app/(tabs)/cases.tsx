@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, queryKeys } from '@valuation-os/api'
 import { formatDate, getCaseStageLabel } from '@valuation-os/utils'
@@ -14,6 +15,12 @@ interface CasesResponse {
     dueDate: string | null
     client: { id: string; name: string; type: string }
     property: { id: string; address: string; localGovernment: string | null; state: string }
+    inspection: {
+      id: string
+      status: 'draft' | 'submitted'
+      inspectionDate: string | null
+      submittedAt: string | null
+    } | null
   }>
 }
 
@@ -24,6 +31,7 @@ const FILTERS = [
 ] as const
 
 export default function CasesTab() {
+  const router = useRouter()
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['value']>('assigned')
 
@@ -72,27 +80,73 @@ export default function CasesTab() {
         <View style={styles.list}>
           {data?.items.length ? (
             data.items.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardBody}>
-                    <Text style={styles.reference}>{item.reference}</Text>
-                    <Text style={styles.clientName}>{item.client.name}</Text>
-                    <Text style={styles.address}>{item.property.address}</Text>
+              <Pressable
+                key={item.id}
+                onPress={() => router.push(`/case/${item.id}`)}
+                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              >
+                <View>
+                  <View style={styles.statusRow}>
+                    <View style={[styles.badge, item.isOverdue ? styles.badgeOverdue : styles.badgeDefault]}>
+                      <Text style={[styles.badgeText, item.isOverdue ? styles.badgeTextOverdue : styles.badgeTextDefault]}>
+                        {getCaseStageLabel(item.stage as never)}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.inspectionBadge,
+                        item.inspection
+                          ? item.inspection.status === 'submitted'
+                            ? styles.inspectionBadgeSubmitted
+                            : styles.inspectionBadgeDraft
+                          : styles.inspectionBadgeMissing,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.inspectionBadgeText,
+                          item.inspection
+                            ? item.inspection.status === 'submitted'
+                              ? styles.inspectionBadgeTextSubmitted
+                              : styles.inspectionBadgeTextDraft
+                            : styles.inspectionBadgeTextMissing,
+                        ]}
+                      >
+                        {item.inspection
+                          ? item.inspection.status === 'submitted'
+                            ? 'Inspection submitted'
+                            : 'Inspection draft'
+                          : 'Inspection needed'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={[styles.badge, item.isOverdue ? styles.badgeOverdue : styles.badgeDefault]}>
-                    <Text style={[styles.badgeText, item.isOverdue ? styles.badgeTextOverdue : styles.badgeTextDefault]}>
-                      {getCaseStageLabel(item.stage as never)}
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardBody}>
+                      <Text style={styles.reference}>{item.reference}</Text>
+                      <Text style={styles.clientName}>{item.client.name}</Text>
+                      <Text style={styles.address}>{item.property.address}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.metaText}>
+                      Due {item.dueDate ? formatDate(item.dueDate) : 'Not set'}
+                    </Text>
+                    <Text style={styles.metaText}>
+                      {item.inspection?.inspectionDate
+                        ? `Inspect ${formatDate(item.inspection.inspectionDate)}`
+                        : item.valuationType}
                     </Text>
                   </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.metaText}>
-                    Due {item.dueDate ? formatDate(item.dueDate) : 'Not set'}
+                  <Text style={styles.openHint}>
+                    {item.inspection
+                      ? item.inspection.status === 'submitted'
+                        ? 'Review case and inspection'
+                        : 'Continue inspection workflow'
+                      : 'Open case workspace'}
                   </Text>
-                  <Text style={styles.metaText}>{item.valuationType}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))
           ) : (
             <View style={styles.emptyState}>
@@ -132,7 +186,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#0b6a38',
   },
   filterChipIdle: {
     backgroundColor: '#ffffff',
@@ -158,6 +212,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#ffffff',
     padding: 16,
+  },
+  cardPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.995 }],
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -192,7 +256,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   badgeDefault: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: '#dcfce7',
   },
   badgeText: {
     fontSize: 10,
@@ -202,7 +266,40 @@ const styles = StyleSheet.create({
     color: '#b91c1c',
   },
   badgeTextDefault: {
+    color: '#166534',
+  },
+  inspectionBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  inspectionBadgeMissing: {
+    backgroundColor: '#eff6ff',
+  },
+  inspectionBadgeDraft: {
+    backgroundColor: '#fef3c7',
+  },
+  inspectionBadgeSubmitted: {
+    backgroundColor: '#ecfdf3',
+  },
+  inspectionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  inspectionBadgeTextMissing: {
     color: '#1d4ed8',
+  },
+  inspectionBadgeTextDraft: {
+    color: '#b45309',
+  },
+  inspectionBadgeTextSubmitted: {
+    color: '#0b6a38',
+  },
+  openHint: {
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0b6a38',
   },
   cardFooter: {
     marginTop: 14,

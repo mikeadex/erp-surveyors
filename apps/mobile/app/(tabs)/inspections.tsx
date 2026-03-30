@@ -1,8 +1,14 @@
-import { useState } from 'react'
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useState } from 'react'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@valuation-os/api'
 import { formatDate } from '@valuation-os/utils'
+import {
+  listInspectionMediaSyncJobs,
+  listInspectionSubmitSyncJobs,
+  listInspectionSyncJobs,
+} from '@/lib/storage'
 
 interface InspectionsResponse {
   items: Array<{
@@ -22,8 +28,12 @@ const FILTERS = [
 ] as const
 
 export default function InspectionsTab() {
+  const router = useRouter()
   const [refreshing, setRefreshing] = useState(false)
   const [status, setStatus] = useState<(typeof FILTERS)[number]['value']>(undefined)
+  const [syncStateByInspection, setSyncStateByInspection] = useState<
+    Record<string, { hasDraft: boolean; mediaCount: number; hasSubmit: boolean }>
+  >({})
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['mobile-inspections', status ?? 'all'],
@@ -36,8 +46,48 @@ export default function InspectionsTab() {
   async function onRefresh() {
     setRefreshing(true)
     await refetch()
+    await loadSyncState()
     setRefreshing(false)
   }
+
+  const loadSyncState = useCallback(async () => {
+    const [draftJobs, mediaJobs, submitJobs] = await Promise.all([
+      listInspectionSyncJobs(),
+      listInspectionMediaSyncJobs(),
+      listInspectionSubmitSyncJobs(),
+    ])
+
+    const nextState: Record<string, { hasDraft: boolean; mediaCount: number; hasSubmit: boolean }> = {}
+
+    for (const job of draftJobs) {
+      nextState[job.inspectionId] = {
+        ...(nextState[job.inspectionId] ?? { hasDraft: false, mediaCount: 0, hasSubmit: false }),
+        hasDraft: true,
+      }
+    }
+
+    for (const job of mediaJobs) {
+      nextState[job.inspectionId] = {
+        ...(nextState[job.inspectionId] ?? { hasDraft: false, mediaCount: 0, hasSubmit: false }),
+        mediaCount: (nextState[job.inspectionId]?.mediaCount ?? 0) + 1,
+      }
+    }
+
+    for (const job of submitJobs) {
+      nextState[job.inspectionId] = {
+        ...(nextState[job.inspectionId] ?? { hasDraft: false, mediaCount: 0, hasSubmit: false }),
+        hasSubmit: true,
+      }
+    }
+
+    setSyncStateByInspection(nextState)
+  }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadSyncState()
+    }, [loadSyncState]),
+  )
 
   return (
     <ScrollView
@@ -67,26 +117,54 @@ export default function InspectionsTab() {
         <View style={styles.list}>
           {data?.items.length ? (
             data.items.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.reference}>{item.case.reference}</Text>
-                  <View style={[styles.badge, item.status === 'submitted' ? styles.badgeSubmitted : styles.badgeDraft]}>
-                    <Text style={[styles.badgeText, item.status === 'submitted' ? styles.badgeTextSubmitted : styles.badgeTextDraft]}>
-                      {item.status === 'submitted' ? 'Submitted' : 'Draft'}
-                    </Text>
+              <Pressable
+                key={item.id}
+                onPress={() => router.push(`/inspection/${item.case.id}/${item.id}`)}
+                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              >
+                <View>
+                  {syncStateByInspection[item.id] ? (
+                    <View style={styles.syncRow}>
+                      {syncStateByInspection[item.id].hasDraft ? (
+                        <View style={[styles.syncBadge, styles.syncBadgeNeutral]}>
+                          <Text style={[styles.syncBadgeText, styles.syncBadgeTextNeutral]}>Draft queued</Text>
+                        </View>
+                      ) : null}
+                      {syncStateByInspection[item.id].mediaCount > 0 ? (
+                        <View style={[styles.syncBadge, styles.syncBadgeNeutral]}>
+                          <Text style={[styles.syncBadgeText, styles.syncBadgeTextNeutral]}>
+                            {syncStateByInspection[item.id].mediaCount} photo{syncStateByInspection[item.id].mediaCount === 1 ? '' : 's'} pending
+                          </Text>
+                        </View>
+                      ) : null}
+                      {syncStateByInspection[item.id].hasSubmit ? (
+                        <View style={[styles.syncBadge, styles.syncBadgeAccent]}>
+                          <Text style={[styles.syncBadgeText, styles.syncBadgeTextAccent]}>Submit queued</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.reference}>{item.case.reference}</Text>
+                    <View style={[styles.badge, item.status === 'submitted' ? styles.badgeSubmitted : styles.badgeDraft]}>
+                      <Text style={[styles.badgeText, item.status === 'submitted' ? styles.badgeTextSubmitted : styles.badgeTextDraft]}>
+                        {item.status === 'submitted' ? 'Submitted' : 'Draft'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
 
-                <Text style={styles.metaLine}>
-                  Inspector: {item.inspector.firstName} {item.inspector.lastName}
-                </Text>
-                <Text style={styles.subMeta}>
-                  Inspection date: {item.inspectionDate ? formatDate(item.inspectionDate) : 'Not scheduled'}
-                </Text>
-                <Text style={styles.subMeta}>
-                  Submitted: {item.submittedAt ? formatDate(item.submittedAt) : 'Not yet'}
-                </Text>
-              </View>
+                  <Text style={styles.metaLine}>
+                    Inspector: {item.inspector.firstName} {item.inspector.lastName}
+                  </Text>
+                  <Text style={styles.subMeta}>
+                    Inspection date: {item.inspectionDate ? formatDate(item.inspectionDate) : 'Not scheduled'}
+                  </Text>
+                  <Text style={styles.subMeta}>
+                    Submitted: {item.submittedAt ? formatDate(item.submittedAt) : 'Not yet'}
+                  </Text>
+                  <Text style={styles.openHint}>Open inspection workspace</Text>
+                </View>
+              </Pressable>
             ))
           ) : (
             <View style={styles.emptyState}>
@@ -126,7 +204,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#0b6a38',
   },
   filterChipIdle: {
     backgroundColor: '#ffffff',
@@ -152,6 +230,37 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#ffffff',
     padding: 16,
+  },
+  cardPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.995 }],
+  },
+  syncRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  syncBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  syncBadgeNeutral: {
+    backgroundColor: '#eff6ff',
+  },
+  syncBadgeAccent: {
+    backgroundColor: '#ecfdf3',
+  },
+  syncBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  syncBadgeTextNeutral: {
+    color: '#1d4ed8',
+  },
+  syncBadgeTextAccent: {
+    color: '#0b6a38',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -193,6 +302,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     color: '#64748b',
+  },
+  openHint: {
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0b6a38',
   },
   emptyState: {
     borderWidth: 1,

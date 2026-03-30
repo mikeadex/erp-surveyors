@@ -55,6 +55,14 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
           isOverdue: true, dueDate: true, createdAt: true, updatedAt: true,
           client: { select: { id: true, name: true, type: true } },
           property: { select: { id: true, address: true, localGovernment: true, state: true } },
+          inspection: {
+            select: {
+              id: true,
+              status: true,
+              inspectionDate: true,
+              submittedAt: true,
+            },
+          },
           assignedValuer: { select: { id: true, firstName: true, lastName: true } },
           assignedReviewer: { select: { id: true, firstName: true, lastName: true } },
         },

@@ -36,6 +36,7 @@ export const GET = withAuth(async (req: AuthedRequest, ctx) => {
     const inspection = await prisma.inspection.findFirst({
       where: { id: inspectionId, caseId },
       include: {
+        case: { select: { id: true, reference: true, stage: true } },
         inspector: { select: { id: true, firstName: true, lastName: true } },
         media: { orderBy: { sortOrder: 'asc' } },
       },

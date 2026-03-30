@@ -18,6 +18,8 @@
         "./*"
       ]
     },
+    "declaration": false,
+    "declarationMap": false,
     "noUncheckedIndexedAccess": false,
     "allowJs": true,
     "noEmit": true,

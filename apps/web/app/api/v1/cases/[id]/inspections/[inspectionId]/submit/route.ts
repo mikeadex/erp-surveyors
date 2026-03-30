@@ -4,6 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { getInspectionSubmissionIssues } from '@valuation-os/utils'
 
 export const POST = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -23,9 +24,30 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
 
     const inspection = await prisma.inspection.findFirst({
       where: { id: inspectionId, caseId },
+      include: {
+        media: {
+          select: { id: true },
+        },
+      },
     })
     if (!inspection) throw Errors.NOT_FOUND('Inspection')
     if (inspection.status === 'submitted') throw Errors.CONFLICT('Inspection already submitted')
+
+    const readinessIssues = getInspectionSubmissionIssues({
+      inspectionDate: inspection.inspectionDate,
+      occupancy: inspection.occupancy,
+      locationDescription: inspection.locationDescription,
+      externalCondition: inspection.externalCondition,
+      internalCondition: inspection.internalCondition,
+      services: inspection.services,
+      conditionSummary: inspection.conditionSummary,
+      mediaCount: inspection.media.length,
+    })
+    if (readinessIssues.length) {
+      throw Errors.VALIDATION({
+        inspection: readinessIssues.map((issue) => issue.message),
+      })
+    }
 
     const updated = await prisma.inspection.update({
       where: { id: inspectionId },

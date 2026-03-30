@@ -1,3 +1,4 @@
+import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import { apiPost } from '@valuation-os/api'
@@ -5,7 +6,8 @@ import { getExpoPushToken, setExpoPushToken } from '@/lib/storage'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -17,6 +19,10 @@ function getProjectId() {
 
 export async function registerForPushNotifications() {
   try {
+    if (Constants.appOwnership === 'expo') {
+      return null
+    }
+
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',

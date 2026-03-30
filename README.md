@@ -198,6 +198,79 @@ pnpm -C apps/web dev
 pnpm -C apps/mobile start
 ```
 
+### 5a. Run Web + iOS Simulator on a MacBook
+
+Use this order when you want the web API and the Expo app running together locally:
+
+1. Start the web app:
+
+```bash
+pnpm -C apps/web dev
+```
+
+2. Open the iOS Simulator:
+
+```bash
+open -a Simulator
+```
+
+3. Start Expo and launch the app into the simulator:
+
+```bash
+pnpm -C apps/mobile ios
+```
+
+Important notes:
+
+- `pnpm -C apps/mobile start --clear` only starts Metro. It does **not** open the iOS simulator by itself.
+- if Metro is already running, you can press `i` in the terminal to launch the iOS simulator
+- if the app feels stale after dependency changes, use:
+
+```bash
+pnpm -C apps/mobile start --clear
+```
+
+then press `i`
+
+4. If the simulator app is open but a specific device is not booted, you can boot one manually:
+
+```bash
+xcrun simctl boot "iPhone 15 Pro Max"
+open -a Simulator
+```
+
+### 5b. Test on a Physical iPhone with Expo Go
+
+1. Find your MacBook's local IP address:
+
+```bash
+ipconfig getifaddr en0
+```
+
+2. Start the web app:
+
+```bash
+pnpm -C apps/web dev
+```
+
+3. Start Expo with the API URL pointing at that LAN IP:
+
+```bash
+EXPO_PUBLIC_API_URL=http://YOUR_MAC_IP:3000 pnpm -C apps/mobile start --clear
+```
+
+4. On the iPhone:
+
+- connect to the same Wi-Fi network as the MacBook
+- open Expo Go
+- scan the QR code from Metro
+
+Important notes:
+
+- current iPhone Expo Go only supports the latest Expo SDK, so this repo is pinned to SDK 54 for Expo Go compatibility
+- if the QR opens but the app cannot load data, the most common issue is `EXPO_PUBLIC_API_URL` still pointing at `localhost` instead of your Mac's LAN IP
+- USB is helpful for trust/charging, but Expo Go still typically connects over local network rather than through the cable itself
+
 ### 6. Typecheck before pushing
 
 ```bash

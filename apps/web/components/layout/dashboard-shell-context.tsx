@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 interface DashboardShellContextValue {
@@ -18,7 +19,7 @@ const DESKTOP_BREAKPOINT = 1024
 export function DashboardShellProvider({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)

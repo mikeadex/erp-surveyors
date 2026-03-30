@@ -10,6 +10,8 @@ import { assertRecordBranchAccess } from '@/lib/auth/branch-scope'
 import { InspectionMediaGallery } from '@/components/inspections/inspection-media-gallery'
 import { hasMediaReadConfig, hasSignedStorageConfig } from '@/lib/storage/s3'
 import { InspectionMediaManager } from '@/components/inspections/inspection-media-manager'
+import { richTextToPlainText } from '@/lib/editor/rich-text'
+import { getInspectionSubmissionIssues } from '@valuation-os/utils'
 
 export default async function InspectionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: caseId } = await params
@@ -63,6 +65,54 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
 
   const mediaConfigured = hasMediaReadConfig()
   const uploadConfigured = hasSignedStorageConfig()
+  const inspectionSummary = caseRecord.inspection
+    ? richTextToPlainText(caseRecord.inspection.conditionSummary).trim()
+    : ''
+  const inspectionNotes = caseRecord.inspection
+    ? richTextToPlainText(caseRecord.inspection.notes).trim()
+    : ''
+  const readinessIssues = caseRecord.inspection
+    ? getInspectionSubmissionIssues({
+        inspectionDate: caseRecord.inspection.inspectionDate,
+        occupancy: caseRecord.inspection.occupancy,
+        locationDescription: caseRecord.inspection.locationDescription,
+        externalCondition: caseRecord.inspection.externalCondition,
+        internalCondition: caseRecord.inspection.internalCondition,
+        services: caseRecord.inspection.services,
+        conditionSummary: caseRecord.inspection.conditionSummary,
+        mediaCount: caseRecord.inspection.media.length,
+      })
+    : []
+  const handoffItems = [
+    {
+      label: 'Inspection status',
+      ready: caseRecord.inspection?.status === 'submitted',
+      detail: caseRecord.inspection?.status === 'submitted' ? 'Submitted for review' : 'Still in draft',
+    },
+    {
+      label: 'Submission readiness',
+      ready: readinessIssues.length === 0 && Boolean(caseRecord.inspection),
+      detail:
+        readinessIssues.length === 0
+          ? 'All required submission checks are covered.'
+          : `${readinessIssues.length} required item${readinessIssues.length === 1 ? '' : 's'} still missing.`,
+    },
+    {
+      label: 'Condition summary',
+      ready: Boolean(inspectionSummary),
+      detail: inspectionSummary ? 'Main inspection conclusion recorded' : 'Summary still missing',
+    },
+    {
+      label: 'Inspector notes',
+      ready: Boolean(inspectionNotes),
+      detail: inspectionNotes ? 'Supporting notes captured' : 'No supporting notes yet',
+    },
+    {
+      label: 'Photo register',
+      ready: Boolean(caseRecord.inspection?.media.length),
+      detail: `${caseRecord.inspection?.media.length ?? 0} linked photo${caseRecord.inspection?.media.length === 1 ? '' : 's'}`,
+    },
+  ]
 
   return (
     <>
@@ -177,6 +227,48 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
                     emptyCopy="Save the inspection draft first before attaching photos."
                   />
                 )}
+              </div>
+            </section>
+
+            <section className="surface-card rounded-[28px] p-5">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-slate-400" />
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">Reviewer Handoff</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    A quick readiness check before the inspection moves deeper into review and reporting.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {handoffItems.map((item) => (
+                  <div
+                    key={item.label}
+                    className={`rounded-[22px] px-4 py-3 ${item.ready ? 'bg-brand-50/80 text-brand-900' : 'bg-slate-50/90 text-slate-700'}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                          item.ready ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {item.ready ? 'Ready' : 'Pending'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{item.detail}</p>
+                  </div>
+                ))}
+                {readinessIssues.length ? (
+                  <div className="rounded-[22px] border border-amber-200 bg-amber-50/90 px-4 py-3">
+                    <p className="text-sm font-semibold text-amber-900">Still needed before submit</p>
+                    <ul className="mt-2 space-y-2 text-xs leading-5 text-amber-800">
+                      {readinessIssues.map((issue) => (
+                        <li key={issue.key}>• {issue.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </section>
 

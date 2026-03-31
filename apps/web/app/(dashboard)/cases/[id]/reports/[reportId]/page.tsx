@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock3, Download, FileText, XCircle, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock3, Download, FileText, FileDown, XCircle, type LucideIcon } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import { verifyAccessToken } from '@/lib/auth/session'
 import { Header } from '@/components/layout/header'
@@ -163,6 +163,13 @@ export default async function ReportPreviewPage({
               >
                 <Download className="h-4 w-4" />
                 Download HTML
+              </a>
+              <a
+                href={`/api/v1/cases/${caseId}/reports/${reportId}/download?format=pdf`}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <FileDown className="h-4 w-4" />
+                Download PDF
               </a>
               <div className="flex items-center gap-3 self-start rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5">
                 <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold ${status.className}`}>

@@ -395,6 +395,12 @@ Module-specific manual references live in:
 - mobile inspection capture still needs the native camera/upload pass to match the web upload flow
 - some deeper routes still use direct Prisma firm checks instead of the newer tenant wrapper pattern
 
+## Current Functionality Bible
+
+For a fuller current-state walkthrough of the implemented platform, role split, and end-to-end workflows, see:
+
+- [docs/current-functionality-bible.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/current-functionality-bible.md)
+
 ## Repository Workflow
 
 - `main` is the stable baseline

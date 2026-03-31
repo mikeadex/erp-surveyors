@@ -401,6 +401,12 @@ For a fuller current-state walkthrough of the implemented platform, role split, 
 
 - [docs/current-functionality-bible.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/current-functionality-bible.md)
 
+## Department SOPs
+
+Role-based operating guides now live in:
+
+- [docs/sops/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/sops/README.md)
+
 ## Repository Workflow
 
 - `main` is the stable baseline

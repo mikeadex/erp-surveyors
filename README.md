@@ -407,6 +407,12 @@ Role-based operating guides now live in:
 
 - [docs/sops/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/sops/README.md)
 
+## Onboarding Packs
+
+Department onboarding guides now live in:
+
+- [docs/onboarding/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/onboarding/README.md)
+
 ## Repository Workflow
 
 - `main` is the stable baseline

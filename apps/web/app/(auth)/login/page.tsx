@@ -5,6 +5,8 @@ import { LoginForm } from '@/components/auth/login-form'
 export const metadata: Metadata = { title: 'Sign In' }
 
 export default function LoginPage() {
+  const showDemoAccounts = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGINS === 'true'
+
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8">
@@ -12,7 +14,7 @@ export default function LoginPage() {
         <p className="mt-1.5 text-sm text-gray-500">Sign in to your firm account to continue</p>
       </div>
 
-      <LoginForm />
+      <LoginForm showDemoAccounts={showDemoAccounts} />
 
       <div className="mt-5 flex items-center justify-between text-sm">
         <Link href="/signup" className="text-gray-500 hover:text-gray-700">

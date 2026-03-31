@@ -13,6 +13,7 @@ Read these together with:
 
 - [docs/current-functionality-bible.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/current-functionality-bible.md)
 - [docs/sops/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/sops/README.md)
+- [docs/templates/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/templates/README.md)
 
 ## Packs
 
@@ -40,3 +41,4 @@ Each pack includes:
 3. Pair them with a seeded demo workflow in the app.
 4. Review readiness at the end of week one.
 5. Review KPI quality and operating discipline at day 30.
+6. Use the manager templates to record signoff consistently.

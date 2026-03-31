@@ -413,6 +413,12 @@ Department onboarding guides now live in:
 
 - [docs/onboarding/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/onboarding/README.md)
 
+## Manager Templates
+
+Printable role scorecards and manager review templates now live in:
+
+- [docs/templates/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/templates/README.md)
+
 ## Repository Workflow
 
 - `main` is the stable baseline

@@ -161,7 +161,7 @@ export default function SignupPage() {
     router.push('/dashboard')
   }
 
-  const inputCls = 'block w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20'
+  const inputCls = 'block w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20'
   const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5'
 
   return (
@@ -169,7 +169,7 @@ export default function SignupPage() {
       {/* Heading */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create your firm account</h1>
-        <p className="mt-1.5 text-sm text-gray-500">Set up Valuation OS for your practice</p>
+        <p className="mt-1.5 text-sm text-gray-500">Set up ValuCore Africa for your practice</p>
       </div>
 
       {/* Stepper */}
@@ -181,10 +181,10 @@ export default function SignupPage() {
             <div key={s} className="flex items-center flex-1 last:flex-none">
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors
-                  ${done ? 'bg-blue-600 text-white' : active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                  ${done ? 'bg-brand-600 text-white' : active ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
                   {done ? '✓' : i + 1}
                 </div>
-                <span className={`text-xs font-semibold uppercase tracking-wide ${active ? 'text-gray-900' : done ? 'text-blue-600' : 'text-gray-400'}`}>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${active ? 'text-gray-900' : done ? 'text-brand-700' : 'text-gray-400'}`}>
                   {s === 'firm' ? 'Firm Details' : 'Admin Account'}
                 </span>
               </div>
@@ -212,9 +212,9 @@ export default function SignupPage() {
                       Firm URL <span className="text-red-500 normal-case">*</span>
                       <span className="ml-1 normal-case font-normal text-gray-400">— auto-generated, editable</span>
                     </label>
-                    <div className="flex rounded-lg border border-gray-200 bg-gray-50 overflow-hidden transition focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20">
+                    <div className="flex rounded-lg border border-gray-200 bg-gray-50 overflow-hidden transition focus-within:border-brand-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/20">
                       <span className="flex items-center px-3 text-xs text-gray-400 border-r border-gray-200 shrink-0">
-                        valuationos.app/
+                        app.valucore.africa/
                       </span>
                       <input {...register('firm.slug')} placeholder="adeyemi-partners" className="flex-1 px-3 py-2.5 text-sm bg-transparent focus:outline-none" />
                     </div>
@@ -260,7 +260,7 @@ export default function SignupPage() {
                 </div>
 
                 <button type="button" onClick={goToStep2}
-                  className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                  className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
                   Continue →
                 </button>
               </div>
@@ -333,7 +333,7 @@ export default function SignupPage() {
                     ← Back
                   </button>
                   <button type="button" onClick={sendVerificationCode} disabled={isSendingCode}
-                    className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50">
+                    className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50">
                     {isSendingCode ? 'Sending Code…' : 'Send Verification Code →'}
                   </button>
                 </div>
@@ -342,9 +342,9 @@ export default function SignupPage() {
 
             {step === 'verify' && (
               <div className="space-y-5">
-                <div className="rounded-lg bg-blue-50 p-4 border border-blue-100">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-1">Check your email</h3>
-                  <p className="text-xs text-blue-700 leading-relaxed">
+                <div className="rounded-lg border border-brand-100 bg-brand-50 p-4">
+                  <h3 className="mb-1 text-sm font-semibold text-brand-900">Check your email</h3>
+                  <p className="text-xs leading-relaxed text-brand-800">
                     We've sent a 6-digit verification code to <strong>{watch('user.email')}</strong>.<br/>
                     <span className="opacity-75">(Check your terminal console in development mode)</span>
                   </p>
@@ -365,7 +365,7 @@ export default function SignupPage() {
                     ← Back
                   </button>
                   <button type="submit" disabled={isSubmitting}
-                    className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50">
+                    className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50">
                     {isSubmitting ? 'Creating account…' : 'Verify & Create Account →'}
                   </button>
                 </div>
@@ -375,7 +375,7 @@ export default function SignupPage() {
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Already have an account?{' '}
-          <Link href="/login" className="font-medium text-blue-600 hover:text-blue-700">Sign in</Link>
+          <Link href="/login" className="font-medium text-brand-700 hover:text-brand-800">Sign in</Link>
         </p>
       </div>
   )

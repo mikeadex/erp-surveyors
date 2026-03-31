@@ -1,6 +1,6 @@
-# Valuation OS
+# ValuCore Africa
 
-Valuation OS is a multi-tenant operations platform for estate surveying and valuation firms. It combines a web control plane for office operations with a mobile app for field-facing workflows, all backed by shared business rules, shared types, and a single PostgreSQL data model.
+ValuCore Africa is a multi-tenant operations platform for estate surveying and valuation firms. It combines a web control plane for office operations with a mobile app for field-facing workflows, all backed by shared business rules, shared types, and a single PostgreSQL data model.
 
 ## Repo Structure
 
@@ -418,6 +418,12 @@ Department onboarding guides now live in:
 Printable role scorecards and manager review templates now live in:
 
 - [docs/templates/README.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/templates/README.md)
+
+## Deployment Runbook
+
+For launch prep, production checks, deployment order, and rollback rules, use:
+
+- [docs/deployment-checklist.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/docs/deployment-checklist.md)
 
 ## Repository Workflow
 

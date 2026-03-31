@@ -52,7 +52,7 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.container}>
-          <Text style={styles.title}>Valuation OS</Text>
+          <Text style={styles.title}>ValuCore Africa</Text>
           <Text style={styles.subtitle}>Sign in to your firm account</Text>
 
           <View style={styles.fieldGroup}>

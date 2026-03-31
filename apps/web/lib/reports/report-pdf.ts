@@ -102,8 +102,8 @@ export async function buildReportPdfBytes(input: ReportPdfInput) {
   const pdf = await PDFDocument.create()
   pdf.setTitle(input.title)
   pdf.setSubject(input.subtitle)
-  pdf.setProducer('Valuation OS')
-  pdf.setCreator('Valuation OS')
+  pdf.setProducer('ValuCore Africa')
+  pdf.setCreator('ValuCore Africa')
 
   const regular = await pdf.embedFont(StandardFonts.Helvetica)
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
@@ -173,7 +173,7 @@ export async function buildReportPdfBytes(input: ReportPdfInput) {
     size: 11,
   })
 
-  result.page.drawText('Generated server-side by Valuation OS', {
+  result.page.drawText('Generated server-side by ValuCore Africa', {
     x: PAGE_MARGIN,
     y: 24,
     size: 9,

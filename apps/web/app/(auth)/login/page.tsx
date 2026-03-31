@@ -18,7 +18,7 @@ export default function LoginPage() {
         <Link href="/signup" className="text-gray-500 hover:text-gray-700">
           Create an account
         </Link>
-        <Link href="/reset-password" className="text-blue-600 hover:text-blue-700">
+        <Link href="/reset-password" className="text-brand-700 hover:text-brand-800">
           Forgot password?
         </Link>
       </div>

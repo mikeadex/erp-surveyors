@@ -1,9 +1,9 @@
-# Valuation OS — Functionality Bible
+# ValuCore Africa — Functionality Bible
 ### Engineering Reference · v3.0
 
 ---
 
-**Product:** Valuation OS  
+**Product:** ValuCore Africa  
 **Market:** Nigerian estate surveying and valuation firms  
 **Stack:** Next.js · TypeScript · Prisma · PostgreSQL · Expo React Native · TailAdmin  
 **Audience:** Lead engineer, frontend engineer, mobile engineer  
@@ -274,7 +274,7 @@ GET /api/v1/auth/me
 
 ### 4.1 Decision Summary
 
-Valuation OS uses **TailAdmin Free** as its structural UI foundation, with **Studio Admin** as a design language reference. Neither template is used as a codebase to build inside — both are used as component and pattern sources that feed into the clean Turborepo monorepo defined in Section 5.
+ValuCore Africa uses **TailAdmin Free** as its structural UI foundation, with **Studio Admin** as a design language reference. Neither template is used as a codebase to build inside — both are used as component and pattern sources that feed into the clean Turborepo monorepo defined in Section 5.
 
 This decision saves approximately one full sprint of UI groundwork while keeping full ownership of the codebase structure.
 
@@ -285,11 +285,11 @@ This decision saves approximately one full sprint of UI groundwork while keeping
 **Stack:** Next.js 16 · TypeScript · Tailwind CSS v4  
 **Status:** Production-complete — all required pages ship in the free version today
 
-TailAdmin is chosen because it ships everything Valuation OS needs now, not on a roadmap. The free version is MIT licensed with no SaaS restrictions.
+TailAdmin is chosen because it ships everything ValuCore Africa needs now, not on a roadmap. The free version is MIT licensed with no SaaS restrictions.
 
-#### What maps directly to Valuation OS screens
+#### What maps directly to ValuCore Africa screens
 
-| TailAdmin screen | Valuation OS equivalent | Module |
+| TailAdmin screen | ValuCore Africa equivalent | Module |
 |---|---|---|
 | Task List | Case list — stage groupings, assignees, due dates | D |
 | Task Kanban | Case pipeline view (Phase 2) | D |
@@ -306,7 +306,7 @@ TailAdmin is chosen because it ships everything Valuation OS needs now, not on a
 | Inbox | Notification centre | Cross-cutting |
 | Charts (Line, Bar, Pie) | Dashboard analytics widgets | K |
 
-This covers approximately **70% of the Valuation OS screen map** directly. The remaining 30% — inspection form sections, comparable side-by-side grid, case stage pipeline tracker, and report preview — are custom builds that inherit the TailAdmin design system.
+This covers approximately **70% of the ValuCore Africa screen map** directly. The remaining 30% — inspection form sections, comparable side-by-side grid, case stage pipeline tracker, and report preview — are custom builds that inherit the TailAdmin design system.
 
 #### What is NOT taken from TailAdmin
 
@@ -378,7 +378,7 @@ Three screens have no adequate analogue in either template and must be built as 
 
 These are the screens that define whether the product feels built for valuers or built for generic SaaS users. The design investment here matters most.
 
-### 4.5 Design Tokens — Valuation OS Brand
+### 4.5 Design Tokens — ValuCore Africa Brand
 
 Apply these Tailwind CSS v4 design tokens consistently across all screens — TailAdmin-derived and custom alike:
 
@@ -411,7 +411,7 @@ Apply these Tailwind CSS v4 design tokens consistently across all screens — Ta
 ## 5. Monorepo Structure
 
 ```
-valuation-os/
+valucore-africa/
 ├── apps/
 │   ├── web/                    ← Next.js 16 web platform
 │   │   ├── app/
@@ -433,7 +433,7 @@ valuation-os/
 │   │   │   ├── charts/         ← Chart components (adapted from TailAdmin)
 │   │   │   ├── tables/         ← TanStack Table wrappers (adapted from TailAdmin)
 │   │   │   ├── forms/          ← React Hook Form + Zod form components
-│   │   │   └── custom/         ← Valuation OS-specific: stage tracker, workbench grid, inspection form
+│   │   │   └── custom/         ← ValuCore Africa-specific: stage tracker, workbench grid, inspection form
 │   │   ├── lib/                ← Web-specific utilities
 │   │   └── public/
 │   │
@@ -2531,7 +2531,7 @@ Before pilot launch, verify these indexes exist via `EXPLAIN ANALYZE` on the fiv
 **Exit criteria:**
 - Turborepo monorepo runs locally with `turbo dev`
 - `packages/types`, `packages/api`, `packages/utils` scaffold created and importable from both apps
-- Brand design tokens applied — sidebar and nav shell renders with correct Valuation OS colours
+- Brand design tokens applied — sidebar and nav shell renders with correct ValuCore Africa colours
 - TailAdmin dashboard shell visible at `localhost:3000/dashboard` with placeholder widgets
 - PostgreSQL running with Prisma migrations
 - Auth flow (login → JWT → protected route) working end-to-end
@@ -2663,5 +2663,5 @@ Before pilot launch, verify these indexes exist via `EXPLAIN ANALYZE` on the fiv
 
 ---
 
-*Valuation OS — Functionality Bible — v3.0*  
+*ValuCore Africa — Functionality Bible — v3.0*  
 *This document is the authoritative build reference. All API behaviour, database schema, business logic rules, and UI foundation decisions in this document take precedence over earlier versions in case of conflict.*

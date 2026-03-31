@@ -13,7 +13,7 @@ interface DashboardShellContextValue {
 
 const DashboardShellContext = createContext<DashboardShellContextValue | null>(null)
 
-const STORAGE_KEY = 'valuation-os.sidebar-collapsed'
+const STORAGE_KEY = 'valucore-africa.sidebar-collapsed'
 const DESKTOP_BREAKPOINT = 1024
 
 export function DashboardShellProvider({

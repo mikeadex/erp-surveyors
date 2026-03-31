@@ -129,7 +129,7 @@ export default function ProfileTab() {
                 Branch: {data.branch?.name ?? 'No branch assigned'}
               </Text>
               <Text style={styles.detailText}>
-                Firm URL: valuationos.app/{data.firm.slug}
+                Firm URL: app.valucore.africa/{data.firm.slug}
               </Text>
               <Text style={styles.detailText}>
                 Last login: {formatDateTime(data.lastLoginAt)}

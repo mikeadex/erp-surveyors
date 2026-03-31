@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Valuation OS",
-    "slug": "valuation-os",
+    "name": "ValuCore Africa",
+    "slug": "valucore-africa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "valuation-os",
+    "scheme": "valucore-africa",
     "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
@@ -12,18 +12,18 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.valuationos.app",
+      "bundleIdentifier": "com.valucoreafrica.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Capture property and inspection photos directly from Valuation OS.",
+        "NSCameraUsageDescription": "Capture property and inspection photos directly from ValuCore Africa.",
         "NSPhotoLibraryUsageDescription": "Select existing property and inspection photos from your library.",
-        "NSPhotoLibraryAddUsageDescription": "Allow Valuation OS to attach selected photos to inspection records."
+        "NSPhotoLibraryAddUsageDescription": "Allow ValuCore Africa to attach selected photos to inspection records."
       }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0b6a38"
       },
-      "package": "com.valuationos.app"
+      "package": "com.valucoreafrica.app"
     },
     "plugins": [
       "expo-router",

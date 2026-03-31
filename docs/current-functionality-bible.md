@@ -1,4 +1,4 @@
-# Valuation OS — Current Functionality Bible
+# ValuCore Africa — Current Functionality Bible
 
 This document explains the product as it exists today in this repository.
 
@@ -8,7 +8,7 @@ This document explains the product as it exists today in this repository.
 
 ## 1. What The Product Is
 
-Valuation OS is a multi-tenant operating system for estate surveying and valuation firms.
+ValuCore Africa is a multi-tenant operating system for estate surveying and valuation firms.
 
 It combines:
 
@@ -440,7 +440,7 @@ Use these documents together:
 
 ## 14. Summary
 
-Valuation OS is no longer just a set of disconnected modules.
+ValuCore Africa is no longer just a set of disconnected modules.
 
 It now behaves like a joined operating platform for valuation firms:
 

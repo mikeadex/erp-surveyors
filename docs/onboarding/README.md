@@ -1,4 +1,4 @@
-# Valuation OS — Onboarding Packs
+# ValuCore Africa — Onboarding Packs
 
 These onboarding packs are the next layer after the SOPs.
 

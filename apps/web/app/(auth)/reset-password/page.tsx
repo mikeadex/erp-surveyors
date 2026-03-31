@@ -47,7 +47,7 @@ function RequestForm() {
     setSent(true)
   }
 
-  const inputCls = 'block w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20'
+  const inputCls = 'block w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20'
   const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5'
 
   if (sent) {
@@ -62,7 +62,7 @@ function RequestForm() {
         {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
       </div>
       {apiError && <div className="rounded-lg bg-red-50 border border-red-100 px-3.5 py-2.5 text-sm text-red-700">{apiError}</div>}
-      <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50">
+      <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50">
         {isSubmitting ? 'Sending…' : 'Send reset code →'}
       </button>
     </form>
@@ -102,14 +102,14 @@ function ConfirmForm({ email }: { email: string }) {
     )
   }
 
-  const inputCls = 'block w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20'
+  const inputCls = 'block w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20'
   const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5'
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg bg-blue-50 p-4 border border-blue-100">
-        <h3 className="text-sm font-semibold text-blue-900 mb-1">Check your email</h3>
-        <p className="text-xs text-blue-700 leading-relaxed">
+      <div className="rounded-lg border border-brand-100 bg-brand-50 p-4">
+        <h3 className="mb-1 text-sm font-semibold text-brand-900">Check your email</h3>
+        <p className="text-xs leading-relaxed text-brand-800">
           We've sent a 6-digit reset code to <strong>{email}</strong>.<br />
           <span className="opacity-75">(Check your terminal console in development mode)</span>
         </p>
@@ -132,7 +132,7 @@ function ConfirmForm({ email }: { email: string }) {
           {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>}
         </div>
         {apiError && <div className="rounded-lg bg-red-50 border border-red-100 px-3.5 py-2.5 text-sm text-red-700">{apiError}</div>}
-        <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50">
+        <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50">
           {isSubmitting ? 'Resetting…' : 'Reset password →'}
         </button>
       </form>
@@ -157,7 +157,7 @@ export default function ResetPasswordPage() {
       </Suspense>
 
       <p className="mt-6 text-center text-sm text-gray-500">
-        <Link href="/login" className="font-medium text-blue-600 hover:text-blue-700">Back to login</Link>
+        <Link href="/login" className="font-medium text-brand-700 hover:text-brand-800">Back to login</Link>
       </p>
     </div>
   )

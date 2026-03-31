@@ -1,4 +1,4 @@
-# Valuation OS — Department SOP Index
+# ValuCore Africa — Department SOP Index
 
 These SOPs translate the platform into day-to-day operating playbooks for each department.
 

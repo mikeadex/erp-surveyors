@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { initials } from '@valuation-os/utils'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, BarChart3,
@@ -135,7 +135,25 @@ function SidebarInner({
   onClose?: () => void
   onToggle?: () => void
 }) {
+  const router = useRouter()
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const userInitials = initials(userFirstName, userLastName)
+
+  async function handleSignOut() {
+    if (isSigningOut) return
+
+    setIsSigningOut(true)
+    try {
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } finally {
+      router.replace('/login')
+      router.refresh()
+      setIsSigningOut(false)
+    }
+  }
 
   return (
     <div
@@ -150,7 +168,7 @@ function SidebarInner({
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-              Valuation OS
+              ValuCore Africa
             </p>
             <h2 className="mt-1 text-lg font-semibold text-slate-950">{firmName}</h2>
           </div>
@@ -178,7 +196,7 @@ function SidebarInner({
                 {!compact ? (
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Valuation OS
+                      ValuCore Africa
                     </p>
                     <p className="truncate text-sm font-semibold text-slate-900">{firmName}</p>
                   </div>
@@ -268,22 +286,25 @@ function SidebarInner({
             Keep your pipeline moving and your branch activity visible from one place.
           </p>
         ) : null}
-        <form action="/api/v1/auth/logout" method="POST" className={compact ? '' : 'mt-3'}>
+        <div className={compact ? '' : 'mt-3'}>
           <button
-            type="submit"
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
             title={compact ? 'Sign out' : undefined}
             className={[
               'flex w-full items-center rounded-2xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950',
+              isSigningOut ? 'cursor-wait opacity-70' : '',
               compact ? 'justify-center px-0 py-2.5' : 'justify-between px-3.5 py-3',
             ].join(' ')}
           >
             <span className={['flex items-center', compact ? 'justify-center' : 'gap-3'].join(' ')}>
               <LogOut className="h-4 w-4 shrink-0" />
-              {!compact ? 'Sign out' : null}
+              {!compact ? (isSigningOut ? 'Signing out…' : 'Sign out') : null}
             </span>
             {!compact ? <ChevronRight className="h-4 w-4 text-slate-400" /> : null}
           </button>
-        </form>
+        </div>
       </div>
     </div>
   )

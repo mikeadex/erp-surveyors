@@ -8,7 +8,7 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: { default: 'Valuation OS', template: '%s | Valuation OS' },
+  title: { default: 'ValuCore Africa', template: '%s | ValuCore Africa' },
   description: 'Operating system for Nigerian estate surveying and valuation firms',
 }
 

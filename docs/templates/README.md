@@ -1,4 +1,4 @@
-# Valuation OS — Manager Templates
+# ValuCore Africa — Manager Templates
 
 These templates turn the SOPs and onboarding packs into repeatable management tools.
 

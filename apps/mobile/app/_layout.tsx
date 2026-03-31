@@ -131,7 +131,7 @@ export default function RootLayout() {
       </Stack>
       {!storageReady ? (
         <View style={styles.loadingOverlay}>
-          <Text style={styles.loadingTitle}>Valuation OS</Text>
+          <Text style={styles.loadingTitle}>ValuCore Africa</Text>
           <Text style={styles.loadingSubtitle}>Restoring your session…</Text>
         </View>
       ) : null}

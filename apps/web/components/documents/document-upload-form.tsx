@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileUp, Loader2, Paperclip } from 'lucide-react'
 
@@ -38,6 +38,7 @@ interface DocumentClientOption {
 
 interface DocumentPropertyOption {
   id: string
+  clientId: string | null
   address: string
   city: string
   state: string
@@ -85,11 +86,30 @@ export function DocumentUploadForm({
     () => cases.find((option) => option.id === caseId),
     [caseId, cases],
   )
+  const effectiveClientId = selectedCase?.client.id ?? clientId
+  const filteredProperties = useMemo(() => {
+    if (!effectiveClientId) return properties
+    return properties.filter((property) => property.clientId === effectiveClientId)
+  }, [effectiveClientId, properties])
 
   const parsedTags = useMemo(
     () => tags.split(',').map((value) => value.trim()).filter(Boolean),
     [tags],
   )
+
+  useEffect(() => {
+    if (selectedCase) {
+      if (clientId !== selectedCase.client.id) setClientId(selectedCase.client.id)
+      if (propertyId !== selectedCase.property.id) setPropertyId(selectedCase.property.id)
+    }
+  }, [clientId, propertyId, selectedCase])
+
+  useEffect(() => {
+    if (!propertyId) return
+    if (!filteredProperties.some((property) => property.id === propertyId)) {
+      setPropertyId('')
+    }
+  }, [filteredProperties, propertyId])
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
@@ -352,8 +372,15 @@ export function DocumentUploadForm({
               <select
                 id="document-client"
                 value={clientId}
-                onChange={(event) => setClientId(event.target.value)}
+                onChange={(event) => {
+                  const nextClientId = event.target.value
+                  setClientId(nextClientId)
+                  if (propertyId && !properties.some((property) => property.id === propertyId && property.clientId === nextClientId)) {
+                    setPropertyId('')
+                  }
+                }}
                 className={inputClassName}
+                disabled={Boolean(selectedCase)}
               >
                 <option value="">No client selected</option>
                 {clients.map((option) => (
@@ -362,6 +389,11 @@ export function DocumentUploadForm({
                   </option>
                 ))}
               </select>
+              {selectedCase ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Client is inherited from the selected case.
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -369,16 +401,35 @@ export function DocumentUploadForm({
               <select
                 id="document-property"
                 value={propertyId}
-                onChange={(event) => setPropertyId(event.target.value)}
+                onChange={(event) => {
+                  const nextPropertyId = event.target.value
+                  setPropertyId(nextPropertyId)
+                  const selectedProperty = properties.find((option) => option.id === nextPropertyId)
+                  if (selectedProperty?.clientId && !selectedCase) {
+                    setClientId(selectedProperty.clientId)
+                  }
+                }}
                 className={inputClassName}
+                disabled={Boolean(selectedCase)}
               >
-                <option value="">No property selected</option>
-                {properties.map((option) => (
+                <option value="">
+                  {selectedCase
+                    ? 'Case property selected automatically'
+                    : effectiveClientId && filteredProperties.length === 0
+                      ? 'No properties found for this client'
+                      : 'No property selected'}
+                </option>
+                {filteredProperties.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.address}, {option.city}, {option.state}
                   </option>
                 ))}
               </select>
+              {effectiveClientId && !selectedCase ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Showing only properties linked to the selected client.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

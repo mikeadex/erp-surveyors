@@ -54,12 +54,22 @@
     border: 1px solid var(--color-app-border);
     box-shadow: 0 18px 46px -34px rgba(15, 23, 42, 0.2);
     backdrop-filter: blur(14px);
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .surface-card {
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid rgba(226, 232, 240, 0.9);
     box-shadow: 0 14px 34px -26px rgba(15, 23, 42, 0.14);
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .field-shell {
@@ -73,5 +83,124 @@
     box-shadow:
       0 0 0 3px rgba(11, 106, 56, 0.12),
       inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .page-reveal-shell {
+    min-height: 100%;
+    animation: page-shell 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .page-reveal {
+    position: relative;
+    isolation: isolate;
+    min-height: 100%;
+  }
+
+  .page-reveal::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 220px;
+    background:
+      radial-gradient(circle at top left, rgba(35, 131, 74, 0.14), transparent 48%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 84%);
+    opacity: 0;
+    filter: blur(14px);
+    pointer-events: none;
+    animation: page-wash 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .page-reveal-content {
+    min-height: 100%;
+  }
+
+  .page-reveal-content > * {
+    opacity: 0;
+    filter: blur(8px);
+    will-change: opacity, filter;
+    animation: page-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .page-reveal-content > *:nth-child(2) {
+    animation-delay: 60ms;
+  }
+
+  .page-reveal-content > *:nth-child(3) {
+    animation-delay: 120ms;
+  }
+
+  .page-reveal-content > *:nth-child(4) {
+    animation-delay: 180ms;
+  }
+
+  .page-reveal-content > *:nth-child(5) {
+    animation-delay: 240ms;
+  }
+
+  .page-reveal-content > *:nth-child(6) {
+    animation-delay: 300ms;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .surface-panel:hover {
+    transform: translateY(-1px);
+    border-color: rgba(148, 163, 184, 0.24);
+    box-shadow: 0 22px 52px -34px rgba(15, 23, 42, 0.24);
+  }
+
+  .surface-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(191, 219, 205, 0.95);
+    background: rgba(255, 255, 255, 0.985);
+    box-shadow:
+      0 24px 48px -34px rgba(15, 23, 42, 0.18),
+      0 10px 20px -18px rgba(11, 106, 56, 0.12);
+  }
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes page-shell {
+  from {
+    opacity: 0.985;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes page-wash {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-reveal::before,
+  .page-reveal-content > * {
+    animation: none;
+    opacity: 1;
+    filter: none;
+  }
+
+  .surface-panel,
+  .surface-card {
+    transition: none;
   }
 }

@@ -5,7 +5,12 @@ import { Plus } from 'lucide-react'
 import { ModalShell } from '@/components/ui/modal-shell'
 import { NewPropertyForm } from '@/components/properties/new-property-form'
 
-export function CreatePropertyModalTrigger() {
+interface PropertyClientOption {
+  id: string
+  name: string
+}
+
+export function CreatePropertyModalTrigger({ clients }: { clients: PropertyClientOption[] }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -26,7 +31,7 @@ export function CreatePropertyModalTrigger() {
           onClose={() => setOpen(false)}
           widthClassName="max-w-4xl"
         >
-          <NewPropertyForm onCancel={() => setOpen(false)} />
+          <NewPropertyForm clients={clients} onCancel={() => setOpen(false)} />
         </ModalShell>
       ) : null}
     </>

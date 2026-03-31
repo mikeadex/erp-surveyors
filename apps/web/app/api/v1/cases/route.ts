@@ -126,6 +126,19 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
       ...(scopedBranchId ? [assertBranchBelongsToFirm(scopedBranchId, req.firmId)] : []),
     ])
 
+    const selectedProperty = await req.db.property.findFirst({
+      where: {
+        id: body.propertyId,
+        firmId: req.firmId,
+        deletedAt: null,
+      },
+      select: { id: true, clientId: true },
+    })
+    if (!selectedProperty) throw Errors.BAD_REQUEST('Selected property does not belong to your firm')
+    if (selectedProperty.clientId && selectedProperty.clientId !== body.clientId) {
+      throw Errors.BAD_REQUEST('Selected property does not belong to the chosen client')
+    }
+
     let caseRecord: {
       id: string
       reference: string

@@ -30,7 +30,7 @@ export default async function NewCasePage() {
     }),
     prisma.property.findMany({
       where: { firmId: session.firmId },
-      select: { id: true, address: true, city: true, state: true },
+      select: { id: true, clientId: true, address: true, city: true, state: true },
       orderBy: { createdAt: 'desc' },
       take: 100,
     }),

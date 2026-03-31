@@ -344,6 +344,7 @@ async function main() {
     prisma.property.create({
       data: {
         firmId: firm.id,
+        clientId: paradigmClient.id,
         address: '23 Wharf Road, Lekki Phase 1',
         city: 'Lagos',
         state: 'Lagos',
@@ -360,6 +361,7 @@ async function main() {
     prisma.property.create({
       data: {
         firmId: firm.id,
+        clientId: royalCrestClient.id,
         address: '17 Gana Street, Maitama',
         city: 'Abuja',
         state: 'FCT',
@@ -376,6 +378,7 @@ async function main() {
     prisma.property.create({
       data: {
         firmId: firm.id,
+        clientId: sterlingClient.id,
         address: '4A Acme Road, Ogba',
         city: 'Lagos',
         state: 'Lagos',

@@ -162,6 +162,7 @@ model Client {
   deletedAt DateTime?
 
   contacts  Contact[]
+  properties Property[]
   cases     Case[]
   invoices  Invoice[]
   documents Document[]
@@ -196,6 +197,8 @@ model Property {
   id               String      @id @default(uuid())
   firmId           String
   firm             Firm        @relation(fields: [firmId], references: [id])
+  clientId         String?
+  client           Client?     @relation(fields: [clientId], references: [id])
   address          String      @db.VarChar(400)
   city             String      @db.VarChar(100)
   state            String      @db.VarChar(100)
@@ -216,6 +219,7 @@ model Property {
   documents Document[]
 
   @@index([firmId])
+  @@index([clientId])
   @@index([firmId, deletedAt])
   @@index([firmId, state, city])
   @@map("properties")

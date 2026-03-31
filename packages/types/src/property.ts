@@ -17,6 +17,7 @@ export type PropertyUse =
 export interface Property {
   id: string
   firmId: string
+  clientId: string | null
   address: string
   city: string
   state: string
@@ -36,6 +37,7 @@ export interface Property {
 
 export interface PropertySummary {
   id: string
+  clientId?: string | null
   address: string
   city: string
   state: string

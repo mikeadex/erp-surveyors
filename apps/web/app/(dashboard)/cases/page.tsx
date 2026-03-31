@@ -83,7 +83,7 @@ export default async function CasesPage({
     }),
     prisma.property.findMany({
       where: { firmId: session.firmId, deletedAt: null },
-      select: { id: true, address: true, city: true, state: true },
+      select: { id: true, clientId: true, address: true, city: true, state: true },
       orderBy: { createdAt: 'desc' },
       take: 200,
     }),

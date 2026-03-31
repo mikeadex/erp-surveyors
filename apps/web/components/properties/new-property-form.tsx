@@ -32,7 +32,18 @@ const inputClassName =
   'block w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
 const labelClassName = 'mb-1 block text-xs font-medium text-slate-700'
 
-export function NewPropertyForm({ onCancel }: { onCancel?: () => void } = {}) {
+interface PropertyClientOption {
+  id: string
+  name: string
+}
+
+export function NewPropertyForm({
+  clients,
+  onCancel,
+}: {
+  clients: PropertyClientOption[]
+  onCancel?: () => void
+}) {
   const router = useRouter()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [duplicateWarnings, setDuplicateWarnings] = useState<Array<{
@@ -92,6 +103,38 @@ export function NewPropertyForm({ onCancel }: { onCancel?: () => void } = {}) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <section className={sectionClassName}>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Ownership</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Link the property to its client so case and document workflows can narrow the right record automatically.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="clientId" className={labelClassName}>
+            Owning Client
+          </label>
+          <select
+            {...register('clientId', {
+              setValueAs: (value) => value || undefined,
+            })}
+            id="clientId"
+            className={inputClassName}
+          >
+            <option value="">No client selected</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Leave this empty only if the property should stay unassigned in the registry for now.
+          </p>
+        </div>
+      </section>
+
       <section className={sectionClassName}>
         <h2 className="text-sm font-semibold text-slate-900">Location</h2>
 

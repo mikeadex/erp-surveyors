@@ -26,7 +26,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const session = await verifyAccessToken(token).catch(() => null)
   if (!session) redirect('/login')
 
-  const [user, propertyRecord, comparableCandidates] = await Promise.all([
+  const [user, propertyRecord, comparableCandidates, clientOptions] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.userId },
       select: { id: true, firstName: true, lastName: true, role: true, email: true },
@@ -36,6 +36,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       select: {
         id: true,
         firmId: true,
+        clientId: true,
+        client: { select: { id: true, name: true } },
         address: true,
         city: true,
         state: true,
@@ -80,6 +82,12 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       take: 150,
       orderBy: { createdAt: 'desc' },
     }),
+    prisma.client.findMany({
+      where: { firmId: session.firmId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+    }),
   ])
 
   if (!user) redirect('/login')
@@ -114,7 +122,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 </div>
                 <PropertyManagementPanel
                   propertyId={property.id}
+                  clients={clientOptions}
                   initial={{
+                    clientId: property.clientId,
                     address: property.address,
                     city: property.city,
                     state: property.state,
@@ -134,6 +144,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
               <dl className="space-y-3 text-sm divide-y divide-gray-100">
                 <div className="pt-2 first:pt-0">
+                  <dt className="text-xs text-gray-500">Client</dt>
+                  <dd className="mt-0.5 text-gray-700">{property.client?.name ?? 'Unassigned'}</dd>
+                </div>
+                <div className="pt-2">
                   <dt className="text-xs text-gray-500">Address</dt>
                   <dd className="mt-0.5 font-medium text-gray-900">{property.address}</dd>
                 </div>

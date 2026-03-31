@@ -29,7 +29,9 @@ const secondaryButtonClassName =
 
 interface PropertyManagementPanelProps {
   propertyId: string
+  clients: Array<{ id: string; name: string }>
   initial: {
+    clientId: string | null
     address: string
     city: string
     state: string
@@ -48,12 +50,14 @@ interface PropertyManagementPanelProps {
 
 export function PropertyManagementPanel({
   propertyId,
+  clients,
   initial,
   canArchive,
 }: PropertyManagementPanelProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({
+    clientId: initial.clientId ?? '',
     address: initial.address,
     city: initial.city,
     state: initial.state,
@@ -72,6 +76,7 @@ export function PropertyManagementPanel({
 
   function resetForm() {
     setForm({
+      clientId: initial.clientId ?? '',
       address: initial.address,
       city: initial.city,
       state: initial.state,
@@ -92,6 +97,7 @@ export function PropertyManagementPanel({
     setError(null)
 
     const payload: Partial<CreatePropertyInput> = {
+      clientId: form.clientId || null,
       address: form.address,
       city: form.city,
       state: form.state,
@@ -166,6 +172,22 @@ export function PropertyManagementPanel({
         >
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className={labelClassName}>Owning Client</label>
+                <select
+                  value={form.clientId}
+                  onChange={(event) => setForm((current) => ({ ...current, clientId: event.target.value }))}
+                  className={inputClassName}
+                >
+                  <option value="">No client selected</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="sm:col-span-2">
                 <label className={labelClassName}>Address</label>
                 <input

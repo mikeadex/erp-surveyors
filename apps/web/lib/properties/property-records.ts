@@ -14,6 +14,7 @@ type DuplicateInput = {
 }
 
 type PropertyPayload = {
+  clientId?: string | null | undefined
   address?: string | undefined
   city?: string | undefined
   state?: string | undefined

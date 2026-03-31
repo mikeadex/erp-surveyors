@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "db:backfill-property-clients": "node scripts/backfill-property-clients.mjs",
     "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {

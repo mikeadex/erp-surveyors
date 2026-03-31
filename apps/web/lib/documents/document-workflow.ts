@@ -124,7 +124,7 @@ export async function resolveDocumentLinks({
           firmId,
           deletedAt: null,
         },
-        select: { id: true },
+        select: { id: true, clientId: true },
       })
     : null
   if (propertyId && !propertyRecord) {
@@ -141,6 +141,10 @@ export async function resolveDocumentLinks({
 
   const resolvedClientId = clientId ?? caseRecord?.clientId ?? null
   const resolvedPropertyId = propertyId ?? caseRecord?.propertyId ?? null
+
+  if (propertyRecord?.clientId && resolvedClientId && propertyRecord.clientId !== resolvedClientId) {
+    throw Errors.BAD_REQUEST('Selected property does not belong to the chosen client')
+  }
 
   if (!caseRecord && !resolvedClientId && !resolvedPropertyId) {
     throw Errors.BAD_REQUEST('Link the document to a case, client, or property')

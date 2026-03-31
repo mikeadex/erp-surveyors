@@ -4,11 +4,12 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CreateCaseSchema, type CreateCaseInput } from '@valuation-os/utils'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 interface SelectOption {
   id: string
+  clientId?: string | null
   name?: string
   firstName?: string
   lastName?: string
@@ -63,6 +64,7 @@ export function NewCaseForm({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateCaseInput>({
     resolver: zodResolver(CreateCaseSchema),
@@ -71,6 +73,26 @@ export function NewCaseForm({
     },
   })
   const selectedBranchId = watch('branchId')
+  const selectedClientId = watch('clientId')
+  const selectedPropertyId = watch('propertyId')
+
+  const filteredProperties = useMemo(
+    () => properties.filter((property) => property.clientId === selectedClientId),
+    [properties, selectedClientId],
+  )
+
+  useEffect(() => {
+    if (!selectedClientId) {
+      if (selectedPropertyId) {
+        setValue('propertyId', '', { shouldDirty: true, shouldValidate: true })
+      }
+      return
+    }
+
+    if (!filteredProperties.some((property) => property.id === selectedPropertyId)) {
+      setValue('propertyId', '', { shouldDirty: true, shouldValidate: true })
+    }
+  }, [filteredProperties, selectedClientId, selectedPropertyId, setValue])
 
   async function onSubmit(data: CreateCaseInput) {
     setErrorMsg(null)
@@ -146,14 +168,26 @@ export function NewCaseForm({
           <select
             {...register('propertyId')}
             className={inputClassName}
+            disabled={!selectedClientId}
           >
-            <option value="">Select property…</option>
-            {properties.map((p) => (
+            <option value="">
+              {!selectedClientId
+                ? 'Select client first…'
+                : filteredProperties.length === 0
+                  ? 'No properties found for this client'
+                  : 'Select property…'}
+            </option>
+            {filteredProperties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}
               </option>
             ))}
           </select>
+          {selectedClientId && filteredProperties.length === 0 ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Add or reassign a property to this client before opening the case.
+            </p>
+          ) : null}
           {errors.propertyId && (
             <p className="mt-1 text-xs text-red-600">{errors.propertyId.message}</p>
           )}

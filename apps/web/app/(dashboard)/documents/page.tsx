@@ -143,6 +143,7 @@ export default async function DocumentsPage({
       },
       select: {
         id: true,
+        clientId: true,
         address: true,
         city: true,
         state: true,

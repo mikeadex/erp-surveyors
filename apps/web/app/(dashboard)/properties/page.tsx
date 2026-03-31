@@ -63,7 +63,7 @@ export default async function PropertiesPage({
     ...(buildPropertySearchWhere(search) ?? {}),
   }
 
-  const [items, total] = await Promise.all([
+  const [items, total, clientOptions] = await Promise.all([
     prisma.property.findMany({
       where,
       // Prisma types in this workspace lag the generated `deletedAt` field, so we widen the
@@ -71,6 +71,8 @@ export default async function PropertiesPage({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       select: {
         id: true, address: true, city: true, state: true,
+        clientId: true,
+        client: { select: { id: true, name: true } },
         localGovernment: true, propertyUse: true, tenureType: true,
         plotSize: true, plotSizeUnit: true, description: true, createdAt: true, deletedAt: true,
         _count: { select: { cases: true } },
@@ -80,6 +82,12 @@ export default async function PropertiesPage({
       orderBy: { createdAt: 'desc' },
     }),
     prisma.property.count({ where }),
+    prisma.client.findMany({
+      where: { firmId: session.firmId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+    }),
   ])
 
   const totalPages = Math.ceil(total / pageSize)
@@ -89,6 +97,8 @@ export default async function PropertiesPage({
     city: string
     state: string
     localGovernment: string | null
+    clientId: string | null
+    client: { id: string; name: string } | null
     propertyUse: string
     tenureType: string
     plotSize: string | number | null
@@ -116,7 +126,7 @@ export default async function PropertiesPage({
                 Search the registry by address, location, use, and notes while keeping the layout aligned with the calmer operating shell.
               </p>
             </div>
-            <CreatePropertyModalTrigger />
+            <CreatePropertyModalTrigger clients={clientOptions} />
           </div>
         </section>
 

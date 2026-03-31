@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 const trimmedOptionalString = (max: number) =>
   z.string().trim().max(max).optional().transform((value) => value || undefined)
+const nullableUuid = z.string().uuid().nullable().optional()
 
 const TenureTypeSchema = z.enum([
   'statutory_right_of_occupancy',
@@ -22,6 +23,7 @@ const PropertyUseSchema = z.enum([
 ])
 
 export const CreatePropertySchema = z.object({
+  clientId: nullableUuid,
   address: z.string().trim().min(1).max(400),
   city: z.string().trim().min(1).max(100),
   state: z.string().trim().min(1).max(100),

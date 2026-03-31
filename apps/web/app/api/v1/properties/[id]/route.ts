@@ -13,6 +13,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     const property = await req.db.property.findFirst({
       where: { id },
       include: {
+        client: { select: { id: true, name: true } },
         cases: {
           select: {
             id: true, reference: true, stage: true,
@@ -42,12 +43,38 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
     const existing = await req.db.property.findFirst({ where: { id, deletedAt: null } })
     if (!existing) throw Errors.NOT_FOUND('Property')
 
+    let nextClientId: string | null | undefined
+
+    if (body.clientId !== undefined) {
+      if (body.clientId) {
+        const client = await req.db.client.findFirst({
+          where: {
+            id: body.clientId,
+            firmId: req.firmId,
+            deletedAt: null,
+          },
+          select: { id: true },
+        })
+        if (!client) throw Errors.BAD_REQUEST('Selected client does not belong to your firm')
+        nextClientId = body.clientId
+      }
+      else {
+        nextClientId = null
+      }
+    }
+
     const data = Object.fromEntries(Object.entries(normalized).filter(([, v]) => v !== undefined))
     await req.db.property.updateMany({
       where: { id, deletedAt: null },
-      data: data as Record<string, unknown>,
+      data: {
+        ...(data as Record<string, unknown>),
+        ...(body.clientId !== undefined ? { clientId: nextClientId ?? null } : {}),
+      },
     })
-    const property = await req.db.property.findFirst({ where: { id, deletedAt: null } })
+    const property = await req.db.property.findFirst({
+      where: { id, deletedAt: null },
+      include: { client: { select: { id: true, name: true } } },
+    })
     if (!property) throw Errors.NOT_FOUND('Property')
     return ok(property)
   } catch (err) {

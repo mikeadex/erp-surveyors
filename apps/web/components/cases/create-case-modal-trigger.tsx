@@ -7,6 +7,7 @@ import { NewCaseForm } from '@/components/cases/new-case-form'
 
 interface SelectOption {
   id: string
+  clientId?: string | null
   name?: string
   firstName?: string
   lastName?: string

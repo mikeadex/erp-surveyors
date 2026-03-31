@@ -5,6 +5,7 @@ import { parsePagination, parseSearch } from '@/lib/api/pagination'
 import { CreatePropertySchema } from '@valuation-os/utils'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { Errors } from '@/lib/api/errors'
 import {
   buildPropertySearchWhere,
   findPropertyDuplicateMatches,
@@ -41,6 +42,8 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
         where,
         select: {
           id: true, address: true, city: true, state: true,
+          clientId: true,
+          client: { select: { id: true, name: true } },
           localGovernment: true, propertyUse: true, tenureType: true,
           plotSize: true, plotSizeUnit: true, description: true, createdAt: true, deletedAt: true,
           _count: { select: { cases: true } },
@@ -62,6 +65,18 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
     const body = CreatePropertyRequestSchema.parse(await req.json())
     const normalized = normalizePropertyPayload(body)
+
+    if (body.clientId) {
+      const client = await req.db.client.findFirst({
+        where: {
+          id: body.clientId,
+          firmId: req.firmId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      })
+      if (!client) throw Errors.BAD_REQUEST('Selected client does not belong to your firm')
+    }
 
     const duplicateCandidates = await req.db.property.findMany({
       where: { deletedAt: null },
@@ -91,6 +106,7 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
 
     const property = await req.db.property.create({
       data: {
+        ...(body.clientId ? { clientId: body.clientId } : {}),
         address: normalized.address!,
         city: normalized.city!,
         state: normalized.state!,
@@ -106,6 +122,7 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
       },
       select: {
         id: true, address: true, city: true, state: true,
+        clientId: true,
         propertyUse: true, tenureType: true, plotSize: true, plotSizeUnit: true, createdAt: true,
       },
     })

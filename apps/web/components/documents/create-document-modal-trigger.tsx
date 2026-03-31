@@ -27,6 +27,7 @@ interface DocumentClientOption {
 
 interface DocumentPropertyOption {
   id: string
+  clientId: string | null
   address: string
   city: string
   state: string

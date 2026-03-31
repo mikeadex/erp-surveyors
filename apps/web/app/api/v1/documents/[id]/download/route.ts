@@ -4,14 +4,23 @@ import { errorResponse, ok } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { NextResponse } from 'next/server'
 import { buildPublicAssetUrl, createPresignedDownloadUrl, hasSignedStorageConfig } from '@/lib/storage/s3'
+import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { buildDocumentVisibilityWhere } from '@/lib/documents/document-workflow'
 
 export const GET = withAuth(async (req: AuthedRequest, ctx) => {
   try {
     const { id } = await ctx.params as { id: string }
+    const scopedBranchId = await resolveScopedBranchId(req.session).catch(() => undefined)
 
     const doc = await prisma.document.findFirst({
-      where: { id, firmId: req.session.firmId, deletedAt: null },
-      select: { id: true, name: true, s3Key: true, mimeType: true },
+      where: {
+        id,
+        firmId: req.session.firmId,
+        deletedAt: null,
+        confirmedAt: { not: null },
+        ...(buildDocumentVisibilityWhere(scopedBranchId) ?? {}),
+      },
+      select: { id: true, name: true, s3Key: true, mimeType: true, confirmedAt: true },
     })
 
     if (!doc) throw Errors.NOT_FOUND('Document')

@@ -27,9 +27,21 @@ export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
           },
         },
         documents: {
+          where: {
+            deletedAt: null,
+            confirmedAt: { not: null },
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
-          select: { id: true, name: true, s3Key: true, mimeType: true, createdAt: true },
+          select: {
+            id: true,
+            name: true,
+            s3Key: true,
+            mimeType: true,
+            category: true,
+            tags: true,
+            createdAt: true,
+          },
         },
         invoice: { select: { id: true, invoiceNumber: true, status: true, totalAmount: true } },
       },

@@ -7,13 +7,20 @@ import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Pagination } from '@/components/ui/pagination'
 import { formatDate } from '@valuation-os/utils'
-import { FileText, Image, File, Download, FolderOpen } from 'lucide-react'
+import { FileText, Image, File, Download, FolderOpen, UserRound, Building2, Tag } from 'lucide-react'
 import { DocumentsFiltersBar } from '@/components/documents/documents-filters-bar'
+import { CreateDocumentModalTrigger } from '@/components/documents/create-document-modal-trigger'
+import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { buildDocumentVisibilityWhere } from '@/lib/documents/document-workflow'
+import { hasSignedStorageConfig } from '@/lib/storage/s3'
 
 interface SearchParams {
   page?: string
   search?: string
   caseId?: string
+  clientId?: string
+  propertyId?: string
+  category?: string
 }
 
 function fileIcon(mimeType: string) {
@@ -45,6 +52,8 @@ export default async function DocumentsPage({
   const pageSize = 25
   const skip = (page - 1) * pageSize
   const search = params.search?.trim()
+  const scopedBranchId = await resolveScopedBranchId(session).catch(() => undefined)
+  const uploadConfigured = hasSignedStorageConfig()
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
@@ -55,11 +64,26 @@ export default async function DocumentsPage({
   const where = {
     firmId: session.firmId,
     deletedAt: null,
+    confirmedAt: { not: null },
     ...(params.caseId ? { caseId: params.caseId } : {}),
-    ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
+    ...(params.clientId ? { clientId: params.clientId } : {}),
+    ...(params.propertyId ? { propertyId: params.propertyId } : {}),
+    ...(params.category ? { category: params.category } : {}),
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { category: { contains: search, mode: 'insensitive' as const } },
+            { case: { reference: { contains: search, mode: 'insensitive' as const } } },
+            { client: { name: { contains: search, mode: 'insensitive' as const } } },
+            { property: { address: { contains: search, mode: 'insensitive' as const } } },
+          ],
+        }
+      : {}),
+    ...(buildDocumentVisibilityWhere(scopedBranchId) ?? {}),
   }
 
-  const [items, total] = await Promise.all([
+  const [items, total, caseOptions, clientOptions, propertyOptions] = await Promise.all([
     prisma.document.findMany({
       where,
       select: {
@@ -68,14 +92,64 @@ export default async function DocumentsPage({
         mimeType: true,
         sizeBytes: true,
         caseId: true,
+        clientId: true,
+        propertyId: true,
+        category: true,
+        tags: true,
+        confirmedAt: true,
         createdAt: true,
         case: { select: { id: true, reference: true } },
+        client: { select: { id: true, name: true } },
+        property: { select: { id: true, address: true, city: true, state: true } },
       },
       skip,
       take: pageSize,
       orderBy: { createdAt: 'desc' },
     }),
     prisma.document.count({ where }),
+    prisma.case.findMany({
+      where: {
+        firmId: session.firmId,
+        stage: { not: 'archived' },
+        ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
+      },
+      select: {
+        id: true,
+        reference: true,
+        client: { select: { id: true, name: true } },
+        property: { select: { id: true, address: true, city: true } },
+      },
+      take: 80,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.client.findMany({
+      where: {
+        firmId: session.firmId,
+        deletedAt: null,
+        ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        branch: { select: { name: true } },
+      },
+      take: 120,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.property.findMany({
+      where: {
+        firmId: session.firmId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        address: true,
+        city: true,
+        state: true,
+      },
+      take: 120,
+      orderBy: { updatedAt: 'desc' },
+    }),
   ])
 
   const totalPages = Math.ceil(total / pageSize)
@@ -94,8 +168,25 @@ export default async function DocumentsPage({
                 Keep valuation files, evidence packs, and uploads easy to trace.
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Search the document register by filename while keeping linked case records a tap away.
+                Upload supporting files once, keep them linked to the right records, and make retrieval easy for case, client, and property workflows.
               </p>
+            </div>
+            <div className="flex flex-col items-start gap-2 lg:items-end">
+              <CreateDocumentModalTrigger
+                cases={caseOptions}
+                clients={clientOptions.map((client) => ({
+                  id: client.id,
+                  name: client.name,
+                  branchName: client.branch?.name ?? null,
+                }))}
+                properties={propertyOptions}
+                uploadConfigured={uploadConfigured}
+              />
+              {!uploadConfigured ? (
+                <p className="text-xs text-amber-700">
+                  Storage credentials are still needed before new uploads can be completed here.
+                </p>
+              ) : null}
             </div>
           </div>
         </section>
@@ -155,6 +246,47 @@ export default async function DocumentsPage({
                         </div>
                       </div>
 
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-[22px] bg-slate-50/80 p-3.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Client
+                          </p>
+                          <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+                            <UserRound className="h-4 w-4 text-slate-400" />
+                            {doc.client?.name ?? 'No linked client'}
+                          </p>
+                        </div>
+
+                        <div className="rounded-[22px] bg-slate-50/80 p-3.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Property
+                          </p>
+                          <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+                            <Building2 className="h-4 w-4 text-slate-400" />
+                            {doc.property ? `${doc.property.address}, ${doc.property.city}` : 'No linked property'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {doc.category || doc.tags.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {doc.category ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">
+                              <Tag className="h-3 w-3" />
+                              {doc.category}
+                            </span>
+                          ) : null}
+                          {doc.tags.map((tag) => (
+                            <span
+                              key={`${doc.id}-${tag}`}
+                              className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+
                       <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-sm">
                         <span className="text-slate-400">Download file</span>
                         <a
@@ -175,7 +307,7 @@ export default async function DocumentsPage({
               <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50/80">
                   <tr>
-                    {['Name', 'Case', 'Type', 'Size', 'Uploaded', ''].map((h) => (
+                    {['Name', 'Case', 'Client / Property', 'Category', 'Type', 'Size', 'Uploaded', ''].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400"
@@ -209,6 +341,32 @@ export default async function DocumentsPage({
                           ) : (
                             '—'
                           )}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-slate-600">
+                          <div className="space-y-1">
+                            <p>{doc.client?.name ?? '—'}</p>
+                            <p className="text-xs text-slate-400">
+                              {doc.property ? `${doc.property.address}, ${doc.property.city}` : 'No linked property'}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-slate-600">
+                          <div className="flex flex-wrap gap-2">
+                            {doc.category ? (
+                              <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-700">
+                                {doc.category}
+                              </span>
+                            ) : null}
+                            {doc.tags.slice(0, 2).map((tag) => (
+                              <span
+                                key={`${doc.id}-${tag}`}
+                                className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {!doc.category && doc.tags.length === 0 ? '—' : null}
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 font-mono text-xs text-slate-500">
                           {doc.mimeType.split('/')[1]?.toUpperCase() ?? doc.mimeType}

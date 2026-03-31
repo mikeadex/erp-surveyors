@@ -164,6 +164,7 @@ model Client {
   contacts  Contact[]
   cases     Case[]
   invoices  Invoice[]
+  documents Document[]
 
   @@index([firmId])
   @@index([firmId, branchId])
@@ -212,6 +213,7 @@ model Property {
   deletedAt        DateTime?
 
   cases Case[]
+  documents Document[]
 
   @@index([firmId])
   @@index([firmId, deletedAt])
@@ -607,16 +609,25 @@ model Document {
   firm        Firm     @relation(fields: [firmId], references: [id])
   caseId      String?
   case        Case?    @relation(fields: [caseId], references: [id])
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id])
+  propertyId  String?
+  property    Property? @relation(fields: [propertyId], references: [id])
   name        String   @db.VarChar(300)
+  category    String?  @db.VarChar(80)
+  tags        String[] @default([])
   s3Key       String   @db.VarChar(500)
   mimeType    String   @db.VarChar(100)
   sizeBytes   Int
   uploadedById String
+  confirmedAt DateTime?
   deletedAt   DateTime?
   createdAt   DateTime @default(now())
 
   @@index([firmId])
   @@index([caseId])
+  @@index([clientId])
+  @@index([propertyId])
   @@map("documents")
 }
 

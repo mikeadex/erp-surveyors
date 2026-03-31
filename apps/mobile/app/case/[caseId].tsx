@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Modal,
   RefreshControl,
@@ -13,8 +14,9 @@ import {
 } from 'react-native'
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiGet, apiPost, queryKeys } from '@valuation-os/api'
+import { apiDelete, apiGet, apiPost, queryKeys } from '@valuation-os/api'
 import { formatDate, getCaseStageLabel } from '@valuation-os/utils'
+import * as DocumentPicker from 'expo-document-picker'
 
 interface CaseDetailResponse {
   id: string
@@ -38,7 +40,7 @@ interface CaseDetailResponse {
     media: Array<{ id: string }>
   } | null
   invoice: { id: string; invoiceNumber: string; status: string; totalAmount: number } | null
-  documents: Array<{ id: string; name: string; mimeType: string; createdAt: string }>
+  documents: Array<{ id: string; name: string; mimeType: string; category: string | null; tags?: string[]; createdAt: string }>
 }
 
 interface CaseActivityResponse {
@@ -127,6 +129,13 @@ export default function MobileCaseDetailScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [creatingInspection, setCreatingInspection] = useState(false)
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null)
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null)
+  const [uploadModalVisible, setUploadModalVisible] = useState(false)
+  const [uploadingDocument, setUploadingDocument] = useState(false)
+  const [selectedDocumentAsset, setSelectedDocumentAsset] = useState<DocumentPicker.DocumentPickerAsset | null>(null)
+  const [documentName, setDocumentName] = useState('')
+  const [documentCategory, setDocumentCategory] = useState('')
+  const [documentTags, setDocumentTags] = useState('')
   const [attachModalVisible, setAttachModalVisible] = useState(false)
   const [quickCreateVisible, setQuickCreateVisible] = useState(false)
   const [librarySearch, setLibrarySearch] = useState('')
@@ -250,6 +259,127 @@ export default function MobileCaseDetailScreen() {
     } finally {
       setOpeningDocumentId(null)
     }
+  }
+
+  async function pickDocument() {
+    setError(null)
+
+    const result = await DocumentPicker.getDocumentAsync({
+      multiple: false,
+      copyToCacheDirectory: true,
+      type: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'image/jpeg',
+        'image/png',
+      ],
+    })
+
+    if (result.canceled || !result.assets?.length) return
+
+    const asset = result.assets[0]
+    setSelectedDocumentAsset(asset)
+    if (!documentName.trim()) {
+      setDocumentName(asset.name)
+    }
+  }
+
+  async function uploadDocumentForCase() {
+    if (!caseId) return
+    if (!selectedDocumentAsset) {
+      setError('Choose a document before uploading.')
+      return
+    }
+
+    setUploadingDocument(true)
+    setError(null)
+
+    let documentId: string | null = null
+
+    try {
+      const createResult = await apiPost<{ documentId: string; uploadUrl: string }>('/api/v1/documents', {
+        caseId,
+        name: documentName.trim() || selectedDocumentAsset.name,
+        category: documentCategory.trim() || undefined,
+        tags: documentTags
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        mimeType: selectedDocumentAsset.mimeType || 'application/octet-stream',
+        sizeBytes: selectedDocumentAsset.size ?? 1,
+      })
+
+      documentId = createResult.documentId
+
+      const localFileResponse = await fetch(selectedDocumentAsset.uri)
+      const blob = await localFileResponse.blob()
+
+      const uploadResponse = await fetch(createResult.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': selectedDocumentAsset.mimeType || 'application/octet-stream',
+        },
+        body: blob,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('The document upload did not complete successfully.')
+      }
+
+      await apiPost('/api/v1/documents/confirm', { documentId })
+
+      setUploadModalVisible(false)
+      setSelectedDocumentAsset(null)
+      setDocumentName('')
+      setDocumentCategory('')
+      setDocumentTags('')
+      await refetch()
+    } catch (err) {
+      if (documentId) {
+        try {
+          await apiDelete(`/api/v1/documents/${documentId}`)
+        } catch {
+          // Ignore cleanup failures on mobile.
+        }
+      }
+      setError(err instanceof Error ? err.message : 'Could not upload this document.')
+    } finally {
+      setUploadingDocument(false)
+    }
+  }
+
+  async function deleteDocument(documentId: string) {
+    setDeletingDocumentId(documentId)
+    setError(null)
+
+    try {
+      await apiDelete(`/api/v1/documents/${documentId}`)
+      await refetch()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove this document.')
+    } finally {
+      setDeletingDocumentId(null)
+    }
+  }
+
+  function confirmDeleteDocument(documentId: string, name: string) {
+    Alert.alert(
+      'Remove document',
+      `Remove "${name}" from this case?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void deleteDocument(documentId)
+          },
+        },
+      ],
+    )
   }
 
   async function attachComparable(comparableId: string) {
@@ -522,24 +652,50 @@ export default function MobileCaseDetailScreen() {
                 )}
 
                 <View style={styles.documentSummary}>
-                  <Text style={styles.documentSummaryTitle}>Documents</Text>
+                  <View style={styles.documentSummaryHeader}>
+                    <Text style={styles.documentSummaryTitle}>Documents</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => setUploadModalVisible(true)}
+                      style={styles.documentAddAction}
+                    >
+                      <Text style={styles.documentAddActionText}>Upload</Text>
+                    </TouchableOpacity>
+                  </View>
                   {data.documents.length ? (
-                    data.documents.slice(0, 4).map((document) => (
+                    data.documents.map((document) => (
                       <View key={document.id} style={styles.documentRow}>
                         <View style={styles.documentBody}>
                           <Text style={styles.documentName}>{document.name}</Text>
-                          <Text style={styles.documentMeta}>{formatDate(document.createdAt)} • {document.mimeType}</Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.88}
-                          onPress={() => void openDocument(document.id)}
-                          disabled={openingDocumentId === document.id}
-                          style={[styles.documentAction, openingDocumentId === document.id && styles.actionDisabled]}
-                        >
-                          <Text style={styles.documentActionText}>
-                            {openingDocumentId === document.id ? 'Opening…' : 'Open'}
+                          <Text style={styles.documentMeta}>
+                            {formatDate(document.createdAt)} • {document.category || document.mimeType}
                           </Text>
-                        </TouchableOpacity>
+                          {document.tags?.length ? (
+                            <Text style={styles.documentTagLine}>{document.tags.join(' • ')}</Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.documentActionColumn}>
+                          <TouchableOpacity
+                            activeOpacity={0.88}
+                            onPress={() => void openDocument(document.id)}
+                            disabled={openingDocumentId === document.id}
+                            style={[styles.documentAction, openingDocumentId === document.id && styles.actionDisabled]}
+                          >
+                            <Text style={styles.documentActionText}>
+                              {openingDocumentId === document.id ? 'Opening…' : 'Open'}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            activeOpacity={0.88}
+                            onPress={() => confirmDeleteDocument(document.id, document.name)}
+                            disabled={deletingDocumentId === document.id}
+                            style={[styles.documentDeleteAction, deletingDocumentId === document.id && styles.actionDisabled]}
+                          >
+                            <Text style={styles.documentDeleteActionText}>
+                              {deletingDocumentId === document.id ? 'Removing…' : 'Remove'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ))
                   ) : (
@@ -797,6 +953,79 @@ export default function MobileCaseDetailScreen() {
             >
               <Text style={styles.primaryActionText}>
                 {creatingComparable ? 'Saving comparable…' : 'Create and attach'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={uploadModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setUploadModalVisible(false)}
+      >
+        <View style={styles.modalScreen}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Upload Document</Text>
+            <TouchableOpacity onPress={() => setUploadModalVisible(false)}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => void pickDocument()}
+              style={styles.documentPicker}
+            >
+              <Text style={styles.documentPickerTitle}>
+                {selectedDocumentAsset ? selectedDocumentAsset.name : 'Choose a file'}
+              </Text>
+              <Text style={styles.documentPickerSubtitle}>
+                PDF, Word, Excel, JPEG, or PNG up to 50MB
+              </Text>
+            </TouchableOpacity>
+
+            <TextInput
+              value={documentName}
+              onChangeText={setDocumentName}
+              placeholder="Document name"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+
+            <TextInput
+              value={documentCategory}
+              onChangeText={setDocumentCategory}
+              placeholder="Category"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+
+            <TextInput
+              value={documentTags}
+              onChangeText={setDocumentTags}
+              placeholder="Tags (comma separated)"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+
+            <View style={styles.documentLinkCard}>
+              <Text style={styles.documentLinkTitle}>Linked record</Text>
+              <Text style={styles.documentLinkBody}>
+                This upload will be linked to {data?.reference ?? 'this case'} and will inherit the case client and property automatically.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => void uploadDocumentForCase()}
+              disabled={uploadingDocument}
+              style={[styles.primaryAction, uploadingDocument && styles.actionDisabled]}
+            >
+              <Text style={styles.primaryActionText}>
+                {uploadingDocument ? 'Uploading document…' : 'Upload document'}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -1064,12 +1293,29 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 10,
   },
+  documentSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   documentSummaryTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: '#64748b',
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  documentAddAction: {
+    borderRadius: 999,
+    backgroundColor: '#ecfdf3',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  documentAddActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
   },
   documentRow: {
     borderWidth: 1,
@@ -1096,6 +1342,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
+  documentTagLine: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
+  documentActionColumn: {
+    gap: 8,
+  },
   documentAction: {
     borderRadius: 999,
     backgroundColor: '#ecfdf3',
@@ -1106,6 +1359,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#166534',
+  },
+  documentDeleteAction: {
+    borderRadius: 999,
+    backgroundColor: '#fef2f2',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  documentDeleteActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b91c1c',
+  },
+  documentPicker: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#cbd5e1',
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    gap: 6,
+  },
+  documentPickerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  documentPickerSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  documentLinkCard: {
+    borderWidth: 1,
+    borderColor: '#dbe2ea',
+    borderRadius: 18,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 6,
+  },
+  documentLinkTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  documentLinkBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#334155',
   },
   timeline: {
     gap: 10,

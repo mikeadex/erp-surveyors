@@ -84,7 +84,7 @@ export const GET = withAuth(async (req: AuthedRequest) => {
 
 export const POST = withAuth(async (req: AuthedRequest) => {
   try {
-    assertRateLimit(req, {
+    await assertRateLimit(req, {
       namespace: 'documents-create',
       limit: 15,
       windowMs: 10 * 60 * 1000,

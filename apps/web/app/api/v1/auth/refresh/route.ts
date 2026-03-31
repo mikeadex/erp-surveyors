@@ -7,7 +7,7 @@ import { assertRateLimit, buildRateLimitKey, getRequestIp } from '@/lib/api/rate
 
 export async function POST(req: NextRequest) {
   try {
-    assertRateLimit(req, {
+    await assertRateLimit(req, {
       namespace: 'auth-refresh',
       limit: 30,
       windowMs: 10 * 60 * 1000,

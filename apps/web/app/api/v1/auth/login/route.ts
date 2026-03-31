@@ -13,13 +13,13 @@ export async function POST(req: NextRequest) {
     const ip = getRequestIp(req)
     const email = body.email.toLowerCase()
 
-    assertRateLimit(req, {
+    await assertRateLimit(req, {
       namespace: 'auth-login-ip',
       limit: 20,
       windowMs: 10 * 60 * 1000,
       key: buildRateLimitKey(req, [ip]),
     })
-    assertRateLimit(req, {
+    await assertRateLimit(req, {
       namespace: 'auth-login-email',
       limit: 5,
       windowMs: 10 * 60 * 1000,

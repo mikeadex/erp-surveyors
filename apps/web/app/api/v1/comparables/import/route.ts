@@ -49,7 +49,7 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
     requireRole(req.session.role, ['managing_partner', 'admin'])
-    assertRateLimit(req, {
+    await assertRateLimit(req, {
       namespace: 'comparables-import',
       limit: 5,
       windowMs: 60 * 60 * 1000,

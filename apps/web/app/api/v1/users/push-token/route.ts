@@ -7,7 +7,7 @@ import { assertRateLimit, buildRateLimitKey } from '@/lib/api/rate-limit'
 
 export const POST = withAuth(async (req: AuthedRequest) => {
   try {
-    assertRateLimit(req, {
+    await assertRateLimit(req, {
       namespace: 'push-token-register',
       limit: 20,
       windowMs: 60 * 60 * 1000,

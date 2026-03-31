@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { Redis } from '@upstash/redis'
 import { Errors } from './errors'
 
 interface RateLimitEntry {
@@ -16,11 +17,30 @@ interface RateLimitOptions {
 declare global {
   // eslint-disable-next-line no-var
   var __voRateLimitStore: Map<string, RateLimitEntry> | undefined
+  // eslint-disable-next-line no-var
+  var __voRateLimitRedis: Redis | null | undefined
 }
 
 function getRateLimitStore() {
   globalThis.__voRateLimitStore ??= new Map<string, RateLimitEntry>()
   return globalThis.__voRateLimitStore
+}
+
+function getRateLimitRedis() {
+  if (globalThis.__voRateLimitRedis !== undefined) {
+    return globalThis.__voRateLimitRedis
+  }
+
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim()
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
+
+  if (!url || !token) {
+    globalThis.__voRateLimitRedis = null
+    return globalThis.__voRateLimitRedis
+  }
+
+  globalThis.__voRateLimitRedis = new Redis({ url, token })
+  return globalThis.__voRateLimitRedis
 }
 
 export function getRequestIp(req: NextRequest): string {
@@ -36,7 +56,7 @@ export function buildRateLimitKey(req: NextRequest, parts: Array<string | null |
     .join(':')
 }
 
-export function assertRateLimit(req: NextRequest, options: RateLimitOptions) {
+async function assertMemoryRateLimit(options: RateLimitOptions) {
   const key = options.key?.trim()
   if (!key) return
 
@@ -65,3 +85,29 @@ export function assertRateLimit(req: NextRequest, options: RateLimitOptions) {
   store.set(compoundKey, current)
 }
 
+export async function assertRateLimit(req: NextRequest, options: RateLimitOptions) {
+  const key = options.key?.trim()
+  if (!key) return
+
+  const compoundKey = `${options.namespace}:${key}`
+  const redis = getRateLimitRedis()
+
+  if (!redis) {
+    await assertMemoryRateLimit(options)
+    return
+  }
+
+  const count = await redis.incr(compoundKey)
+  if (count === 1) {
+    await redis.expire(compoundKey, Math.max(1, Math.ceil(options.windowMs / 1000)))
+    return
+  }
+
+  if (count > options.limit) {
+    const retryAfterSeconds = await redis.ttl(compoundKey).catch(() => null)
+    throw Errors.TOO_MANY_REQUESTS(
+      'Too many requests for this action. Please wait a moment and try again.',
+      typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0 ? retryAfterSeconds : undefined,
+    )
+  }
+}

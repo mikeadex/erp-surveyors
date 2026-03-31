@@ -59,9 +59,10 @@ export async function getDashboardSummary(
   const caseWhere = buildCaseWhere(session, scopedBranchId)
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
 
   if (session.role === 'finance') {
-    const [unpaid, paidThisMonth, overdue, outstanding] = await Promise.all([
+    const [unpaid, paidThisMonth, paidThisYear, overdue, overdueValue, outstanding] = await Promise.all([
       prisma.invoice.aggregate({
         where: {
           firmId: session.firmId,
@@ -79,12 +80,29 @@ export async function getDashboardSummary(
         },
         _sum: { totalAmount: true },
       }),
+      prisma.invoice.aggregate({
+        where: {
+          firmId: session.firmId,
+          ...(scopedBranchId ? { case: { branchId: scopedBranchId } } : {}),
+          status: 'paid',
+          paidAt: { gte: startOfYear },
+        },
+        _sum: { totalAmount: true },
+      }),
       prisma.invoice.count({
         where: {
           firmId: session.firmId,
           ...(scopedBranchId ? { case: { branchId: scopedBranchId } } : {}),
           status: 'overdue',
         },
+      }),
+      prisma.invoice.aggregate({
+        where: {
+          firmId: session.firmId,
+          ...(scopedBranchId ? { case: { branchId: scopedBranchId } } : {}),
+          status: 'overdue',
+        },
+        _sum: { totalAmount: true },
       }),
       prisma.invoice.count({
         where: {
@@ -99,7 +117,10 @@ export async function getDashboardSummary(
       role: session.role,
       unpaidInvoices: unpaid._sum.totalAmount ?? 0,
       paidThisMonth: paidThisMonth._sum.totalAmount ?? 0,
+      paidThisYear: paidThisYear._sum.totalAmount ?? 0,
+      projectedReceipts: Number(paidThisMonth._sum.totalAmount ?? 0) + Number(unpaid._sum.totalAmount ?? 0),
       invoicesOverdue: overdue,
+      overdueAmount: overdueValue._sum.totalAmount ?? 0,
       outstandingCount: outstanding,
     }
   }

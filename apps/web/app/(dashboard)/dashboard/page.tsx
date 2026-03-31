@@ -60,14 +60,17 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Command Centre
+                {session.role === 'finance' ? 'Finance Command' : 'Command Centre'}
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                Keep valuations, branch work, and delivery risk in view.
+                {session.role === 'finance'
+                  ? 'Track collections, pending receipts, and month-end recovery with clarity.'
+                  : 'Keep valuations, branch work, and delivery risk in view.'}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                The workspace now uses a calmer operating shell with a neutral base, a collapsible
-                sidebar, and Nigerian-green accents for the important states.
+                {session.role === 'finance'
+                  ? 'The finance workspace now surfaces income, projection, pending receivables, and overdue pressure more prominently.'
+                  : 'The workspace now uses a calmer operating shell with a neutral base, a collapsible sidebar, and Nigerian-green accents for the important states.'}
               </p>
             </div>
             <div className="flex items-center justify-start lg:justify-end">
@@ -83,7 +86,9 @@ export default async function DashboardPage({
                 Snapshot
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                A quick view of throughput, review load, and overdue pressure.
+                {session.role === 'finance'
+                  ? 'A bolder view of income, projection, pending collections, and overdue pressure.'
+                  : 'A quick view of throughput, review load, and overdue pressure.'}
               </p>
             </div>
           </div>

@@ -167,7 +167,7 @@ export function NewCaseForm({
           </label>
           <select
             {...register('propertyId')}
-            className={inputClassName}
+            className={`${inputClassName} ${!selectedClientId ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 focus:border-slate-200 focus:ring-0' : ''}`}
             disabled={!selectedClientId}
           >
             <option value="">
@@ -183,6 +183,11 @@ export function NewCaseForm({
               </option>
             ))}
           </select>
+          {!selectedClientId ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Choose a client first so we can show only that client’s properties.
+            </p>
+          ) : null}
           {selectedClientId && filteredProperties.length === 0 ? (
             <p className="mt-1 text-xs text-slate-500">
               Add or reassign a property to this client before opening the case.

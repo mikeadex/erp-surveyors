@@ -409,11 +409,13 @@ export function DocumentUploadForm({
                     setClientId(selectedProperty.clientId)
                   }
                 }}
-                className={inputClassName}
-                disabled={Boolean(selectedCase)}
+                className={`${inputClassName} ${!effectiveClientId && !selectedCase ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 focus:border-slate-200 focus:ring-0' : ''}`}
+                disabled={Boolean(selectedCase) || !effectiveClientId}
               >
                 <option value="">
-                  {selectedCase
+                  {!effectiveClientId && !selectedCase
+                    ? 'Select client first…'
+                    : selectedCase
                     ? 'Case property selected automatically'
                     : effectiveClientId && filteredProperties.length === 0
                       ? 'No properties found for this client'
@@ -425,6 +427,11 @@ export function DocumentUploadForm({
                   </option>
                 ))}
               </select>
+              {!effectiveClientId && !selectedCase ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Choose a client first so we can show only that client’s properties.
+                </p>
+              ) : null}
               {effectiveClientId && !selectedCase ? (
                 <p className="mt-1 text-xs text-slate-400">
                   Showing only properties linked to the selected client.

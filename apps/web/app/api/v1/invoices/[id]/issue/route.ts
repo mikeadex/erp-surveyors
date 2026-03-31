@@ -5,6 +5,7 @@ import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import { createInvoiceAuditEntry } from '@/lib/invoices/invoice-workflow'
+import { createNotificationsForRoles } from '@/lib/notifications/workflow'
 
 export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
@@ -43,6 +44,17 @@ export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
         status: 'sent',
         caseStage: invoice.case.stage === 'final_issued' ? 'invoice_sent' : invoice.case.stage,
       },
+    })
+
+    await createNotificationsForRoles({
+      firmId: req.firmId,
+      roles: ['managing_partner', 'finance'],
+      branchId: scopedBranchId ?? null,
+      type: 'invoice_sent',
+      title: `Invoice issued for case ${invoice.case.id}`,
+      body: 'A case invoice has been issued and is ready for finance follow-up.',
+      entityType: 'Case',
+      entityId: invoice.case.id,
     })
 
     return ok({ message: 'Invoice issued', status: 'sent' })

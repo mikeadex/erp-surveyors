@@ -3,6 +3,8 @@ import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 import { useQuery } from '@tanstack/react-query'
 import { apiGet, apiPost } from '@valuation-os/api'
 import { formatDateTime } from '@valuation-os/utils'
+import { useRouter } from 'expo-router'
+import { getNotificationHref } from '@/lib/notification-routing'
 
 interface NotificationsResponse {
   items: Array<{
@@ -12,12 +14,15 @@ interface NotificationsResponse {
     body: string | null
     readAt: string | null
     createdAt: string
+    entityType: string
+    entityId: string
   }>
   unreadCount: number
 }
 
 export default function NotificationsTab() {
   const [refreshing, setRefreshing] = useState(false)
+  const router = useRouter()
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['mobile-notifications'],
@@ -33,6 +38,22 @@ export default function NotificationsTab() {
   async function markAllRead() {
     await apiPost('/api/v1/notifications/read-all')
     await refetch()
+  }
+
+  async function openNotification(item: NotificationsResponse['items'][number]) {
+    const href = getNotificationHref({
+      entityType: item.entityType,
+      entityId: item.entityId,
+    })
+
+    if (!item.readAt) {
+      await apiPost(`/api/v1/notifications/${item.id}/read`)
+      await refetch()
+    }
+
+    if (href) {
+      router.push(href as never)
+    }
   }
 
   return (
@@ -57,14 +78,16 @@ export default function NotificationsTab() {
         <View style={styles.list}>
           {data?.items.length ? (
             data.items.map((item) => (
-              <View
+              <TouchableOpacity
                 key={item.id}
+                onPress={() => void openNotification(item)}
+                activeOpacity={0.88}
                 style={[styles.card, item.readAt ? styles.cardRead : styles.cardUnread]}
               >
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 {item.body ? <Text style={styles.cardBody}>{item.body}</Text> : null}
                 <Text style={styles.cardMeta}>{formatDateTime(item.createdAt)}</Text>
-              </View>
+              </TouchableOpacity>
             ))
           ) : (
             <View style={styles.emptyState}>

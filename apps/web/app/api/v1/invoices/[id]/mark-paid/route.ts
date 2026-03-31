@@ -5,6 +5,7 @@ import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import { createInvoiceAuditEntry } from '@/lib/invoices/invoice-workflow'
+import { createNotificationsForRoles } from '@/lib/notifications/workflow'
 
 export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
@@ -46,6 +47,17 @@ export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
         paidAt: new Date().toISOString(),
         caseStage: invoice.case.stage === 'invoice_sent' ? 'payment_received' : invoice.case.stage,
       },
+    })
+
+    await createNotificationsForRoles({
+      firmId: req.firmId,
+      roles: ['managing_partner', 'finance'],
+      branchId: scopedBranchId ?? null,
+      type: 'payment_received',
+      title: 'Payment received',
+      body: 'An issued invoice has now been marked as paid.',
+      entityType: 'Case',
+      entityId: invoice.case.id,
     })
 
     return ok({ message: 'Invoice marked as paid', status: 'paid' })

@@ -5,6 +5,7 @@ export type NotificationType =
   | 'report_approved'
   | 'report_rejected'
   | 'invoice_sent'
+  | 'invoice_overdue'
   | 'payment_received'
   | 'case_overdue'
   | 'comment_added'

@@ -4,6 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { createAuditEntry, fetchReportWorkflowContext, requireReportWorkflowContext } from '@/lib/reports/report-compliance'
+import { createNotificationsForUsers } from '@/lib/notifications/workflow'
 
 export const POST = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -40,6 +41,16 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         status: updated.status,
         caseStage: 'draft_report',
       },
+    })
+
+    await createNotificationsForUsers({
+      firmId: req.session.firmId,
+      userIds: [report.case.assignedValuerId],
+      type: 'report_rejected',
+      title: 'Report returned for changes',
+      body: 'A reviewer has rejected the report and requested updates.',
+      entityType: 'Case',
+      entityId: id,
     })
 
     return ok(updated)

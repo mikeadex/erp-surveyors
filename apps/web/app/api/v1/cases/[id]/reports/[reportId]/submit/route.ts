@@ -4,6 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { createAuditEntry, fetchReportWorkflowContext, requireReportWorkflowContext } from '@/lib/reports/report-compliance'
+import { createNotificationsForUsers } from '@/lib/notifications/workflow'
 
 export const POST = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -44,6 +45,16 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         status: updated.status,
         caseStage: 'review',
       },
+    })
+
+    await createNotificationsForUsers({
+      firmId: req.session.firmId,
+      userIds: [report.case.assignedReviewerId],
+      type: 'review_requested',
+      title: 'Report submitted for review',
+      body: 'A valuation report is ready for your review.',
+      entityType: 'Case',
+      entityId: id,
     })
 
     return ok(updated)

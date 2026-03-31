@@ -5,13 +5,29 @@ import { signAccessToken, signRefreshToken, getRefreshTokenExpiry } from '@/lib/
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { LoginSchema } from '@valuation-os/utils'
+import { assertRateLimit, buildRateLimitKey, getRequestIp } from '@/lib/api/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
     const body = LoginSchema.parse(await req.json())
+    const ip = getRequestIp(req)
+    const email = body.email.toLowerCase()
+
+    assertRateLimit(req, {
+      namespace: 'auth-login-ip',
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+      key: buildRateLimitKey(req, [ip]),
+    })
+    assertRateLimit(req, {
+      namespace: 'auth-login-email',
+      limit: 5,
+      windowMs: 10 * 60 * 1000,
+      key: buildRateLimitKey(req, [ip, email]),
+    })
 
     const user = await prisma.user.findUnique({
-      where: { email: body.email.toLowerCase() },
+      where: { email },
       select: {
         id: true,
         firmId: true,

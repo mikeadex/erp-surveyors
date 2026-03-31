@@ -9,6 +9,7 @@ import {
   fetchReportWorkflowContext,
   requireReportWorkflowContext,
 } from '@/lib/reports/report-compliance'
+import { createNotificationsForUsers } from '@/lib/notifications/workflow'
 
 export const POST = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -47,6 +48,16 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         approvedById: updated.approvedById,
         approvedAt: updated.approvedAt?.toISOString() ?? null,
       },
+    })
+
+    await createNotificationsForUsers({
+      firmId: req.session.firmId,
+      userIds: [report.case.assignedValuerId],
+      type: 'report_approved',
+      title: 'Report approved',
+      body: 'Your draft report has been approved and is ready for issue.',
+      entityType: 'Case',
+      entityId: id,
     })
 
     return ok(updated)

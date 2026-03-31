@@ -14,6 +14,7 @@ import {
   assertPropertyBelongsToFirm,
   assertUserBelongsToFirm,
 } from '@/lib/db/ownership'
+import { createNotificationsForUsers } from '@/lib/notifications/workflow'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   try {
@@ -183,6 +184,16 @@ export const POST = withAuth(withTenant(async (req: TenantRequest) => {
           valuationType: caseRecord.valuationType,
         } as any,
       },
+    })
+
+    await createNotificationsForUsers({
+      firmId: req.firmId,
+      userIds: [body.assignedValuerId, body.assignedReviewerId],
+      type: 'case_assigned',
+      title: `New case assigned: ${caseRecord.reference}`,
+      body: `${caseRecord.client.name} is now assigned to your workflow.`,
+      entityType: 'Case',
+      entityId: caseRecord.id,
     })
 
     return created(caseRecord)

@@ -164,8 +164,17 @@ For mobile local development:
 
 - `EXPO_PUBLIC_API_URL`
 - `EXPO_PUBLIC_EAS_PROJECT_ID` if you want push-token registration on device builds
+- `EXPO_ACCESS_TOKEN` if you want Expo push delivery from the backend
 
 The mobile app currently falls back to `http://localhost:3000` when `EXPO_PUBLIC_API_URL` is not set, which is fine for a simulator on the same machine.
+
+For protected scheduled platform jobs:
+
+- `CRON_SECRET`
+
+That secret is used by the overdue workflow sync endpoint at:
+
+- `/api/v1/internal/jobs/overdue-notifications`
 
 ### 4. Generate Prisma client and sync the database
 
@@ -326,6 +335,29 @@ Relevant files:
 - [apps/web/app/api/v1/media/[...key]/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/media/[...key]/route.ts)
 - [apps/web/app/api/v1/documents/[id]/download/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/documents/[id]/download/route.ts)
 
+## Notifications and Platform Hardening
+
+- workflow events now create in-app notifications and best-effort Expo push alerts
+- mobile notifications can deep-link into case workspaces
+- high-risk endpoints now have lightweight API rate limiting:
+  - login
+  - refresh
+  - comparable CSV import
+  - document upload preparation
+  - push-token registration
+- overdue workflow sync can mark:
+  - cases as overdue / cleared
+  - invoices as overdue
+  - and generate overdue notifications through the protected internal job route
+
+Relevant files:
+
+- [apps/web/lib/notifications/workflow.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/notifications/workflow.ts)
+- [apps/web/lib/notifications/overdue.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/notifications/overdue.ts)
+- [apps/web/lib/api/rate-limit.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/lib/api/rate-limit.ts)
+- [apps/web/app/api/v1/internal/jobs/overdue-notifications/route.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/web/app/api/v1/internal/jobs/overdue-notifications/route.ts)
+- [apps/mobile/lib/notification-routing.ts](/Users/michaeladeleye/Documents/product/ERP Surveyors/apps/mobile/lib/notification-routing.ts)
+
 ## Mobile Coverage Today
 
 The mobile app currently includes:
@@ -355,6 +387,7 @@ Module-specific manual references live in:
 - [tests/module-b.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-b.md)
 - [tests/module-c.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-c.md)
 - [tests/module-d.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/module-d.md)
+- [tests/platform-hardening.md](/Users/michaeladeleye/Documents/product/ERP Surveyors/tests/platform-hardening.md)
 
 ## Current Gaps
 

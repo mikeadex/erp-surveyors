@@ -29,6 +29,7 @@ export async function fetchReportWorkflowContext({
           id: true,
           stage: true,
           assignedValuerId: true,
+          assignedReviewerId: true,
           inspection: {
             select: {
               id: true,

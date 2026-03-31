@@ -3,12 +3,14 @@ import { StyleSheet, Text, View } from 'react-native'
 import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import * as Notifications from 'expo-notifications'
 import '../global.css'
 import { setApiAuth, setApiBaseUrl } from '@valuation-os/api'
 import { flushInspectionMediaSyncs } from '@/lib/inspection-media-sync'
 import { flushInspectionDraftSyncs } from '@/lib/inspection-sync'
 import { flushInspectionSubmitSyncs } from '@/lib/inspection-submit-sync'
 import { registerForPushNotifications } from '@/lib/notifications'
+import { routeFromNotification } from '@/lib/notification-routing'
 import {
   clearSession,
   getAccessToken,
@@ -69,6 +71,36 @@ export default function RootLayout() {
     if (!storageReady || !session.accessToken || !session.userId) return
     void registerForPushNotifications()
   }, [session.accessToken, session.userId, storageReady])
+
+  useEffect(() => {
+    if (!storageReady || !navigationState?.key) return
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      routeFromNotification(router, {
+        entityType: typeof response.notification.request.content.data?.entityType === 'string'
+          ? response.notification.request.content.data.entityType
+          : null,
+        entityId: typeof response.notification.request.content.data?.entityId === 'string'
+          ? response.notification.request.content.data.entityId
+          : null,
+      })
+    })
+
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return
+
+      routeFromNotification(router, {
+        entityType: typeof response.notification.request.content.data?.entityType === 'string'
+          ? response.notification.request.content.data.entityType
+          : null,
+        entityId: typeof response.notification.request.content.data?.entityId === 'string'
+          ? response.notification.request.content.data.entityId
+          : null,
+      })
+    })
+
+    return () => subscription.remove()
+  }, [navigationState?.key, router, storageReady])
 
   useEffect(() => {
     if (!storageReady || !session.accessToken) return

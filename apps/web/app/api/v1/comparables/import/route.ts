@@ -12,6 +12,7 @@ import {
   parseCsvText,
   type ComparableImportError,
 } from '@/lib/comparables/comparable-import'
+import { assertRateLimit, buildRateLimitKey } from '@/lib/api/rate-limit'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   try {
@@ -48,6 +49,12 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
     requireRole(req.session.role, ['managing_partner', 'admin'])
+    assertRateLimit(req, {
+      namespace: 'comparables-import',
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+      key: buildRateLimitKey(req, [req.session.firmId, req.session.userId]),
+    })
 
     const formData = await req.formData()
     const file = formData.get('file')

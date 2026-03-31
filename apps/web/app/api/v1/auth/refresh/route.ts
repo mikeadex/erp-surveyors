@@ -3,9 +3,17 @@ import { prisma } from '@/lib/db/prisma'
 import { verifyRefreshToken, signAccessToken, signRefreshToken, getRefreshTokenExpiry } from '@/lib/auth/session'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
+import { assertRateLimit, buildRateLimitKey, getRequestIp } from '@/lib/api/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    assertRateLimit(req, {
+      namespace: 'auth-refresh',
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+      key: buildRateLimitKey(req, [getRequestIp(req)]),
+    })
+
     const token =
       req.cookies.get('refresh_token')?.value ??
       req.headers.get('Authorization')?.replace('Bearer ', '')

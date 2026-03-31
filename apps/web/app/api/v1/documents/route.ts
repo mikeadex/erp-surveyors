@@ -13,6 +13,7 @@ import {
 } from '@/lib/documents/document-workflow'
 import { CreateDocumentSchema } from '@valuation-os/utils'
 import { Errors } from '@/lib/api/errors'
+import { assertRateLimit, buildRateLimitKey } from '@/lib/api/rate-limit'
 
 export const GET = withAuth(async (req: AuthedRequest) => {
   try {
@@ -83,6 +84,13 @@ export const GET = withAuth(async (req: AuthedRequest) => {
 
 export const POST = withAuth(async (req: AuthedRequest) => {
   try {
+    assertRateLimit(req, {
+      namespace: 'documents-create',
+      limit: 15,
+      windowMs: 10 * 60 * 1000,
+      key: buildRateLimitKey(req, [req.session.firmId, req.session.userId]),
+    })
+
     if (!hasSignedStorageConfig()) {
       throw Errors.BAD_REQUEST('Document upload is not configured for this environment')
     }

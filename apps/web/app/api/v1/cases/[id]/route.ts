@@ -6,6 +6,7 @@ import { UpdateCaseSchema } from '@valuation-os/utils'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import { assertBranchBelongsToFirm, assertUserBelongsToFirm } from '@/lib/db/ownership'
 import { prisma } from '@/lib/db/prisma'
+import { createNotificationsForUsers } from '@/lib/notifications/workflow'
 
 export const GET = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
@@ -143,6 +144,23 @@ export const PATCH = withAuth(withTenant(async (req: TenantRequest, ctx) => {
         } as any,
       },
     })
+
+    const assignmentTargets = [
+      body.assignedValuerId && body.assignedValuerId !== existing.assignedValuerId ? body.assignedValuerId : null,
+      body.assignedReviewerId && body.assignedReviewerId !== existing.assignedReviewerId ? body.assignedReviewerId : null,
+    ].filter(Boolean) as string[]
+
+    if (assignmentTargets.length > 0) {
+      await createNotificationsForUsers({
+        firmId: req.firmId,
+        userIds: assignmentTargets,
+        type: 'case_assigned',
+        title: `Case assignment updated: ${updated.reference}`,
+        body: 'A case has been assigned or reassigned to you.',
+        entityType: 'Case',
+        entityId: id,
+      })
+    }
 
     return ok(updated)
   } catch (err) {

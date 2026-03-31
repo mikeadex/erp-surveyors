@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
+import { createAuditEntry } from '@/lib/reports/report-compliance'
 
 export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
   try {
@@ -11,9 +12,23 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
 
     const report = await prisma.report.findFirst({
       where: { id: reportId, caseId: id, firmId: req.session.firmId },
-      select: { id: true },
+      select: {
+        id: true,
+        case: {
+          select: {
+            assignedValuerId: true,
+          },
+        },
+      },
     })
     if (!report) throw Errors.NOT_FOUND('Report')
+
+    if (
+      req.session.role === 'valuer'
+      && report.case.assignedValuerId !== req.session.userId
+    ) {
+      throw Errors.FORBIDDEN('Only the assigned valuer or a managing partner can resolve comments')
+    }
 
     const comment = await prisma.reviewComment.findFirst({
       where: { id: cid, reportId },
@@ -27,6 +42,22 @@ export const PATCH = withAuth(async (req: AuthedRequest, ctx) => {
         isResolved: true,
         resolvedById: req.session.userId,
         resolvedAt: new Date(),
+      },
+    })
+
+    await createAuditEntry(req, {
+      action: 'REVIEW_COMMENT_RESOLVED',
+      entityType: 'ReviewComment',
+      entityId: updated.id,
+      before: {
+        isResolved: comment.isResolved,
+        resolvedById: comment.resolvedById,
+        resolvedAt: comment.resolvedAt?.toISOString() ?? null,
+      },
+      after: {
+        isResolved: updated.isResolved,
+        resolvedById: updated.resolvedById,
+        resolvedAt: updated.resolvedAt?.toISOString() ?? null,
       },
     })
 

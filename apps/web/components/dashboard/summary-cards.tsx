@@ -1,68 +1,143 @@
-import { FolderOpen, Clock, CheckCircle, AlertTriangle, TrendingUp, type LucideIcon } from 'lucide-react'
-import { prisma } from '@/lib/db/prisma'
+import { AlertTriangle, CheckCircle, Clock, Coins, FolderOpen, Receipt, TrendingUp, type LucideIcon } from 'lucide-react'
+import { formatCurrency } from '@valuation-os/utils'
+import type { UserRole } from '@valuation-os/types'
 
 interface SummaryCardsProps {
+  role: UserRole
+  summary: Record<string, any>
   stageMap: Record<string, number>
-  firmId: string
-  branchId?: string
 }
 
 interface StatCard {
   label: string
-  value: number
+  value: string | number
   icon: LucideIcon
   tone: string
   footnote: string
 }
 
-export async function DashboardSummaryCards({ stageMap, firmId, branchId }: SummaryCardsProps) {
-  const [overdueCount, totalClients] = await Promise.all([
-    prisma.case.count({ where: { firmId, ...(branchId ? { branchId } : {}), isOverdue: true } }),
-    prisma.client.count({
-      where: branchId
-        ? { firmId, deletedAt: null, branchId }
-        : { firmId, deletedAt: null },
-    }),
-  ])
+function buildCards(role: UserRole, summary: Record<string, any>, stageMap: Record<string, number>): StatCard[] {
+  if (role === 'finance') {
+    return [
+      {
+        label: 'Unpaid Invoices',
+        value: formatCurrency(summary.unpaidInvoices ?? 0),
+        icon: Receipt,
+        tone: 'text-brand-700',
+        footnote: 'Outstanding billed value still awaiting settlement',
+      },
+      {
+        label: 'Paid This Month',
+        value: formatCurrency(summary.paidThisMonth ?? 0),
+        icon: Coins,
+        tone: 'text-slate-900',
+        footnote: 'Collections recorded since the start of the month',
+      },
+      {
+        label: 'Overdue Invoices',
+        value: summary.invoicesOverdue ?? 0,
+        icon: AlertTriangle,
+        tone: 'text-slate-900',
+        footnote: 'Records that need direct finance follow-up',
+      },
+      {
+        label: 'Outstanding Count',
+        value: summary.outstandingCount ?? 0,
+        icon: Clock,
+        tone: 'text-slate-900',
+        footnote: 'Draft-free live receivables still in motion',
+      },
+    ]
+  }
 
-  const activeStages = [
-    'case_opened', 'inspection_scheduled', 'inspection_completed',
-    'comparable_analysis', 'draft_report', 'review',
-  ]
-  const activeCases = activeStages.reduce((sum, s) => sum + (stageMap[s] ?? 0), 0)
-  const completedCases = (stageMap['final_issued'] ?? 0) + (stageMap['payment_received'] ?? 0)
-  const pendingReview = stageMap['review'] ?? 0
+  if (role === 'valuer' || role === 'field_officer') {
+    return [
+      {
+        label: 'Assigned To Me',
+        value: summary.assignedToMe ?? 0,
+        icon: FolderOpen,
+        tone: 'text-brand-700',
+        footnote: 'Open files currently sitting in your delivery queue',
+      },
+      {
+        label: 'Inspections Due',
+        value: summary.inspectionsDue ?? 0,
+        icon: Clock,
+        tone: 'text-slate-900',
+        footnote: 'Cases waiting on inspection work or follow-through',
+      },
+      {
+        label: 'Draft Report',
+        value: stageMap.draft_report ?? 0,
+        icon: CheckCircle,
+        tone: 'text-slate-900',
+        footnote: 'Files that are close to reviewer handoff',
+      },
+      {
+        label: 'Overdue Assigned',
+        value: summary.overdueAssigned ?? 0,
+        icon: AlertTriangle,
+        tone: 'text-slate-900',
+        footnote: 'Assignments that need intervention to protect turnaround',
+      },
+    ]
+  }
 
-  const cards: StatCard[] = [
+  return [
     {
-      label: 'Active Cases',
-      value: activeCases,
+      label: 'Open Cases',
+      value: summary.openCases ?? 0,
       icon: FolderOpen,
       tone: 'text-brand-700',
-      footnote: 'Open instructions moving through the pipeline',
+      footnote: 'Instructions currently active across the operating pipeline',
     },
     {
-      label: 'Pending Review',
-      value: pendingReview,
+      label: 'Review Load',
+      value: stageMap.review ?? 0,
       icon: Clock,
       tone: 'text-slate-900',
-      footnote: 'Files waiting for reviewer sign-off',
+      footnote: 'Drafts currently waiting for reviewer sign-off',
     },
     {
-      label: 'Completed',
-      value: completedCases,
+      label: 'Library Size',
+      value: summary.comparableCount ?? 0,
       icon: CheckCircle,
       tone: 'text-slate-900',
-      footnote: 'Reports issued and payment milestones reached',
+      footnote: 'Comparable evidence already available to the firm',
     },
     {
-      label: 'Overdue',
-      value: overdueCount,
-      icon: AlertTriangle,
+      label: 'Revenue Pipeline',
+      value: formatCurrency(summary.revenuePipeline ?? 0),
+      icon: Coins,
       tone: 'text-slate-900',
-      footnote: 'Interventions needed to protect turnaround time',
+      footnote: 'Unpaid invoice value still working through collection',
     },
   ]
+}
+
+export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsProps) {
+  const cards = buildCards(role, summary, stageMap)
+
+  const bottomTitle =
+    role === 'finance'
+      ? 'Finance Snapshot'
+      : role === 'valuer' || role === 'field_officer'
+        ? 'My Delivery Mix'
+        : 'Operations Snapshot'
+
+  const bottomValue =
+    role === 'finance'
+      ? formatCurrency(summary.unpaidInvoices ?? 0)
+      : role === 'valuer' || role === 'field_officer'
+        ? summary.assignedToMe ?? 0
+        : summary.openCases ?? 0
+
+  const bottomCopy =
+    role === 'finance'
+      ? 'Outstanding value currently in the receivables queue.'
+      : role === 'valuer' || role === 'field_officer'
+        ? 'Open instructions currently owned by you across inspection, analysis, and reporting.'
+        : 'Active work currently visible across branches, review, and delivery.'
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -93,32 +168,40 @@ export async function DashboardSummaryCards({ stageMap, firmId, branchId }: Summ
           </div>
         )
       })}
+
       <div className="surface-card col-span-2 rounded-[30px] p-6 lg:col-span-4">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500">Client Portfolio</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{totalClients}</p>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-              Active relationships currently available for case intake, branch operations, and reporting.
-            </p>
+            <p className="text-sm font-medium text-slate-500">{bottomTitle}</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{bottomValue}</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{bottomCopy}</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-2xl bg-slate-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Active</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">{activeCases}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Review</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">{pendingReview}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Done</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">{completedCases}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">At Risk</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">{overdueCount}</p>
-            </div>
+            {(role === 'finance'
+              ? [
+                  { label: 'Paid', value: formatCurrency(summary.paidThisMonth ?? 0) },
+                  { label: 'Overdue', value: summary.invoicesOverdue ?? 0 },
+                  { label: 'Open', value: summary.outstandingCount ?? 0 },
+                  { label: 'Scope', value: 'Finance' },
+                ]
+              : role === 'valuer' || role === 'field_officer'
+                ? [
+                    { label: 'Inspection', value: stageMap.inspection_scheduled ?? 0 },
+                    { label: 'Analysis', value: stageMap.comparable_analysis ?? 0 },
+                    { label: 'Draft', value: stageMap.draft_report ?? 0 },
+                    { label: 'Review', value: stageMap.review ?? 0 },
+                  ]
+                : [
+                    { label: 'Open', value: summary.openCases ?? 0 },
+                    { label: 'Review', value: stageMap.review ?? 0 },
+                    { label: 'Overdue', value: summary.overdueCases ?? 0 },
+                    { label: 'Avg Days', value: Number(summary.avgTurnaroundDays ?? 0).toFixed(1) },
+                  ]).map((item) => (
+              <div key={item.label} className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{item.label}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{item.value}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -13,11 +13,13 @@ export const GET = withAuth(async (req: AuthedRequest) => {
     const { skip, take, page, pageSize } = parsePagination(req)
     const params = req.nextUrl.searchParams
     const entityType = params.get('entityType')
+    const entityId = params.get('entityId')
     const userId = params.get('userId')
 
     const where = {
       firmId: req.session.firmId,
       ...(entityType ? { entityType } : {}),
+      ...(entityId ? { entityId } : {}),
       ...(userId ? { userId } : {}),
     }
 

@@ -12,6 +12,7 @@ import { AuditFiltersBar } from '@/components/audit/audit-filters-bar'
 interface SearchParams {
   page?: string
   entityType?: string
+  entityId?: string
   userId?: string
 }
 
@@ -50,6 +51,7 @@ export default async function AuditLogPage({
   const where = {
     firmId: session.firmId,
     ...(params.entityType ? { entityType: { contains: params.entityType, mode: 'insensitive' as const } } : {}),
+    ...(params.entityId ? { entityId: params.entityId } : {}),
     ...(params.userId ? { userId: params.userId } : {}),
   }
 
@@ -94,10 +96,11 @@ export default async function AuditLogPage({
           </div>
         </section>
 
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           {[
             { label: 'Audit Events', helper: `${total} captured`, icon: History },
             { label: 'Entity Filters', helper: params.entityType ?? 'All entities', icon: ShieldCheck },
+            { label: 'Entity Record', helper: params.entityId ? 'Single record' : 'All records', icon: Fingerprint },
             { label: 'User Scope', helper: params.userId ? 'Single user' : 'All users', icon: Fingerprint },
             { label: 'Network Trace', helper: 'IP visibility enabled', icon: Globe },
           ].map((item) => (
@@ -120,6 +123,7 @@ export default async function AuditLogPage({
 
         <AuditFiltersBar
           entityType={params.entityType}
+          entityId={params.entityId}
           userId={params.userId}
           users={users}
         />

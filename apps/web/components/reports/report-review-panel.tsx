@@ -33,17 +33,20 @@ export function ReportReviewPanel({
   reportId,
   status,
   currentRole,
+  canResolveComments,
   comments,
 }: {
   caseId: string
   reportId: string
   status: 'draft' | 'submitted_for_review' | 'approved' | 'rejected' | 'final'
   currentRole: UserRole
+  canResolveComments: boolean
   comments: ReviewCommentItem[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<string[]>([])
   const [commentType, setCommentType] = useState<'blocking' | 'suggestion' | 'informational'>(
     'suggestion',
   )
@@ -56,14 +59,26 @@ export function ReportReviewPanel({
 
   const canSubmit = currentRole === 'managing_partner' || currentRole === 'valuer'
   const canReview = currentRole === 'managing_partner' || currentRole === 'reviewer'
-  const canResolve = currentRole === 'managing_partner' || currentRole === 'valuer'
+  const canResolve = canResolveComments
+
+  function consumeActionError(json: any, fallback: string) {
+    const details = json?.error?.details
+      ? Object.values(json.error.details)
+          .flatMap((value) => (Array.isArray(value) ? value : []))
+          .filter((value): value is string => typeof value === 'string')
+      : []
+
+    setErrorMsg(json?.error?.message ?? fallback)
+    setErrorDetails(details)
+  }
 
   async function runAction(endpoint: string) {
     setErrorMsg(null)
+    setErrorDetails([])
     const res = await fetch(endpoint, { method: 'POST' })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setErrorMsg(json?.error?.message ?? 'Action failed')
+      consumeActionError(json, 'Action failed')
       return
     }
     startTransition(() => router.refresh())
@@ -72,6 +87,7 @@ export function ReportReviewPanel({
   async function submitComment() {
     if (!commentBody.trim()) return
     setErrorMsg(null)
+    setErrorDetails([])
 
     const res = await fetch(`/api/v1/cases/${caseId}/reports/${reportId}/comments`, {
       method: 'POST',
@@ -83,7 +99,7 @@ export function ReportReviewPanel({
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setErrorMsg(json?.error?.message ?? 'Failed to add review comment')
+      consumeActionError(json, 'Failed to add review comment')
       return
     }
 
@@ -94,12 +110,13 @@ export function ReportReviewPanel({
 
   async function resolveComment(commentId: string) {
     setErrorMsg(null)
+    setErrorDetails([])
     const res = await fetch(`/api/v1/cases/${caseId}/reports/${reportId}/comments/${commentId}`, {
       method: 'PATCH',
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setErrorMsg(json?.error?.message ?? 'Failed to resolve comment')
+      consumeActionError(json, 'Failed to resolve comment')
       return
     }
     startTransition(() => router.refresh())
@@ -194,7 +211,14 @@ export function ReportReviewPanel({
 
       {errorMsg ? (
         <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {errorMsg}
+          <p>{errorMsg}</p>
+          {errorDetails.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs leading-5 text-rose-700/90">
+              {errorDetails.map((detail) => (
+                <li key={detail}>• {detail}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 

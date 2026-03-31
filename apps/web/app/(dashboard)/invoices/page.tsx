@@ -11,6 +11,7 @@ import { BranchFilter } from '@/components/ui/branch-filter'
 import { InvoicesFiltersBar } from '@/components/invoices/invoices-filters-bar'
 import { formatDate, formatCurrency } from '@valuation-os/utils'
 import { canAccessAllBranches, resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { CreateInvoiceModalTrigger } from '@/components/invoices/create-invoice-modal-trigger'
 
 interface SearchParams {
   page?: string
@@ -40,7 +41,7 @@ export default async function InvoicesPage({
   const session = await verifyAccessToken(token).catch(() => null)
   if (!session) redirect('/login')
 
-  if (!['managing_partner', 'admin', 'finance'].includes(session.role)) redirect('/dashboard')
+  if (!['managing_partner', 'finance'].includes(session.role)) redirect('/dashboard')
 
   const params = await searchParams
   const page = Math.max(1, Number(params.page ?? 1))
@@ -113,6 +114,28 @@ export default async function InvoicesPage({
     }),
   ])
 
+  const eligibleCases = await prisma.case.findMany({
+    where: {
+      firmId: session.firmId,
+      ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
+      stage: { in: ['final_issued', 'invoice_sent', 'payment_received'] },
+      invoice: null,
+    },
+    select: {
+      id: true,
+      reference: true,
+      stage: true,
+      client: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 100,
+  })
+
   const totalPages = Math.ceil(total / pageSize)
 
   return (
@@ -132,7 +155,8 @@ export default async function InvoicesPage({
                 Keep invoices visible by status and branch while staying aligned with the calmer dashboard shell.
               </p>
             </div>
-            <div className="flex w-full justify-start lg:w-auto lg:justify-end">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:w-auto lg:justify-end">
+              <CreateInvoiceModalTrigger eligibleCases={eligibleCases} />
               <BranchFilter branches={visibleBranches} />
             </div>
           </div>

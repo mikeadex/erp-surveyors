@@ -13,22 +13,24 @@ interface UserOption {
 
 interface AuditFiltersBarProps {
   entityType: string | undefined
+  entityId: string | undefined
   userId: string | undefined
   users: UserOption[]
 }
 
 export function AuditFiltersBar({
   entityType,
+  entityId,
   userId,
   users,
 }: AuditFiltersBarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const activeFilterCount = useMemo(() => {
-    return [entityType, userId].filter(Boolean).length
-  }, [entityType, userId])
+    return [entityType, entityId, userId].filter(Boolean).length
+  }, [entityId, entityType, userId])
 
-  const hasFilters = Boolean(entityType || userId)
+  const hasFilters = Boolean(entityType || entityId || userId)
 
   const formBody = (
     <>
@@ -51,6 +53,13 @@ export function AuditFiltersBar({
           </option>
         ))}
       </select>
+      <input
+        type="search"
+        name="entityId"
+        defaultValue={entityId}
+        placeholder="Filter entity ID…"
+        className="field-shell w-full rounded-2xl px-3.5 py-3 text-sm text-slate-700 outline-none"
+      />
       <button
         type="submit"
         className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800"
@@ -73,7 +82,7 @@ export function AuditFiltersBar({
       <div className="hidden xl:block">
         <form
           method="GET"
-          className="surface-card grid gap-3 rounded-[28px] p-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto]"
+          className="surface-card grid gap-3 rounded-[28px] p-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto_auto]"
         >
           {formBody}
         </form>

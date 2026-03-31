@@ -5,6 +5,8 @@ import { verifyAccessToken } from '@/lib/auth/session'
 import { Header } from '@/components/layout/header'
 import { formatDate, formatCurrency } from '@valuation-os/utils'
 import Link from 'next/link'
+import { InvoiceActionsPanel } from '@/components/invoices/invoice-actions-panel'
+import { EditInvoiceModalTrigger } from '@/components/invoices/edit-invoice-modal-trigger'
 
 const STATUS_COLORS: Record<string, string> = {
   draft:   'bg-gray-100 text-gray-600',
@@ -25,7 +27,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const session = await verifyAccessToken(token).catch(() => null)
   if (!session) redirect('/login')
 
-  if (!['managing_partner', 'admin', 'finance'].includes(session.role)) redirect('/dashboard')
+  if (!['managing_partner', 'finance'].includes(session.role)) redirect('/dashboard')
 
   const [user, invoice] = await Promise.all([
     prisma.user.findUnique({
@@ -48,6 +50,31 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     <>
       <Header user={user} title={invoice.invoiceNumber} />
       <div className="p-6 max-w-3xl space-y-6">
+        <InvoiceActionsPanel
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.invoiceNumber}
+          status={invoice.status}
+          currentRole={user.role}
+        />
+
+        {invoice.status === 'draft' ? (
+          <div className="flex justify-end">
+            <EditInvoiceModalTrigger
+              invoice={{
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                caseId: invoice.case.id,
+                clientId: invoice.client.id,
+                clientName: invoice.client.name,
+                amount: invoice.amount.toString(),
+                currency: invoice.currency,
+                taxRate: invoice.taxRate?.toString() ?? null,
+                dueDate: invoice.dueDate?.toISOString() ?? null,
+                notes: invoice.notes ?? null,
+              }}
+            />
+          </div>
+        ) : null}
 
         <div className="flex items-center gap-3">
           <span

@@ -7,6 +7,7 @@ import { BranchFilter } from '@/components/ui/branch-filter'
 import { Header } from '@/components/layout/header'
 import { DashboardSummaryCards } from '@/components/dashboard/summary-cards'
 import { canAccessAllBranches, resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { getDashboardStageItems, getDashboardSummary } from '@/lib/dashboard/metrics'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -28,16 +29,13 @@ export default async function DashboardPage({
   const params = await searchParams
   const scopedBranchId = await resolveScopedBranchId(session, params.branchId ?? null)
 
-  const [user, caseCounts, branches] = await Promise.all([
+  const [user, summary, stageItems, branches] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.userId },
       select: { firstName: true, lastName: true, role: true },
     }),
-    prisma.case.groupBy({
-      by: ['stage'],
-      where: { firmId: session.firmId, ...(scopedBranchId ? { branchId: scopedBranchId } : {}) },
-      _count: { id: true },
-    }),
+    getDashboardSummary(session, scopedBranchId),
+    getDashboardStageItems(session, scopedBranchId),
     prisma.branch.findMany({
       where: { firmId: session.firmId, isActive: true },
       select: { id: true, name: true },
@@ -51,7 +49,7 @@ export default async function DashboardPage({
     : branches.filter((branch) => branch.id === session.branchId)
 
   const stageMap = Object.fromEntries(
-    caseCounts.map((r: { stage: string; _count: { id: number } }) => [r.stage, r._count.id]),
+    stageItems.map((r) => [r.stage, r.count]),
   )
 
   return (
@@ -91,9 +89,9 @@ export default async function DashboardPage({
           </div>
           
           <DashboardSummaryCards
+            role={session.role}
+            summary={summary}
             stageMap={stageMap}
-            firmId={session.firmId}
-            {...(scopedBranchId ? { branchId: scopedBranchId } : {})}
           />
         </div>
       </div>

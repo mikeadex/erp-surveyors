@@ -3,21 +3,18 @@ import { prisma } from '@/lib/db/prisma'
 import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
+import { createAuditEntry, fetchReportWorkflowContext, requireReportWorkflowContext } from '@/lib/reports/report-compliance'
 
 export const POST = withAuth(async (req: AuthedRequest, ctx) => {
   try {
     requireRole(req.session.role, ['managing_partner', 'valuer'])
     const { id, reportId } = await ctx.params as { id: string; reportId: string }
 
-    const report = await prisma.report.findFirst({
-      where: { id: reportId, caseId: id, firmId: req.session.firmId },
-      select: {
-        id: true,
-        status: true,
-        renderedHtml: true,
-      },
-    })
-    if (!report) throw Errors.NOT_FOUND('Report')
+    const report = requireReportWorkflowContext(await fetchReportWorkflowContext({
+      caseId: id,
+      reportId,
+      firmId: req.session.firmId,
+    }))
     if (report.status !== 'draft') {
       throw Errors.CONFLICT('Only draft reports can be submitted for review')
     }
@@ -33,6 +30,20 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
     await prisma.case.update({
       where: { id },
       data: { stage: 'review' },
+    })
+
+    await createAuditEntry(req, {
+      action: 'REPORT_SUBMITTED_FOR_REVIEW',
+      entityType: 'Report',
+      entityId: updated.id,
+      before: {
+        status: report.status,
+        caseStage: report.case.stage,
+      },
+      after: {
+        status: updated.status,
+        caseStage: 'review',
+      },
     })
 
     return ok(updated)

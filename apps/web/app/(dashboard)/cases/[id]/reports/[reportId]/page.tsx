@@ -66,6 +66,7 @@ export default async function ReportPreviewPage({
             reference: true,
             valuationType: true,
             updatedAt: true,
+            assignedValuerId: true,
           },
         },
         comments: {
@@ -232,6 +233,10 @@ export default async function ReportPreviewPage({
           reportId={reportId}
           status={report.status}
           currentRole={user.role}
+          canResolveComments={
+            user.role === 'managing_partner'
+            || (user.role === 'valuer' && report.case.assignedValuerId === user.id)
+          }
           comments={commentItems}
         />
       </div>

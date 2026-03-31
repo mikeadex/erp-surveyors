@@ -4,6 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { z } from 'zod'
+import { createAuditEntry } from '@/lib/reports/report-compliance'
 
 const CreateCommentSchema = z.object({
   type: z.enum(['blocking', 'suggestion', 'informational']),
@@ -50,6 +51,17 @@ export const POST = withAuth(async (req: AuthedRequest, ctx) => {
         authorId: req.session.userId,
         type: body.type,
         body: body.body,
+      },
+    })
+
+    await createAuditEntry(req, {
+      action: 'REVIEW_COMMENT_ADDED',
+      entityType: 'ReviewComment',
+      entityId: comment.id,
+      after: {
+        reportId,
+        type: comment.type,
+        isResolved: comment.isResolved,
       },
     })
 

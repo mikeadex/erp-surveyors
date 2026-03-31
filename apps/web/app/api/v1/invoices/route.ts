@@ -6,6 +6,14 @@ import { parsePagination } from '@/lib/api/pagination'
 import { z } from 'zod'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
 import { assertCaseAndClientBelongToFirm } from '@/lib/db/ownership'
+import { requireRole } from '@/lib/auth/guards'
+import {
+  assertInvoiceCaseOwnership,
+  assertNoExistingInvoice,
+  calculateInvoiceTotals,
+  createInvoiceAuditEntry,
+  generateInvoiceNumber,
+} from '@/lib/invoices/invoice-workflow'
 
 const CreateInvoiceSchema = z.object({
   caseId: z.string().uuid(),
@@ -19,6 +27,7 @@ const CreateInvoiceSchema = z.object({
 
 export const GET = withAuth(withTenant(async (req: TenantRequest) => {
   try {
+    requireRole(req.session.role, ['managing_partner', 'finance'])
     const { skip, take, page, pageSize } = parsePagination(req)
     const params = req.nextUrl.searchParams
     const scopedBranchId = await resolveScopedBranchId(req.session, params.get('branchId'))
@@ -55,50 +64,74 @@ export const GET = withAuth(withTenant(async (req: TenantRequest) => {
 
 export const POST = withAuth(withTenant(async (req: TenantRequest) => {
   try {
+    requireRole(req.session.role, ['managing_partner', 'admin', 'finance'])
     const body = CreateInvoiceSchema.parse(await req.json())
     await assertCaseAndClientBelongToFirm(body.caseId, body.clientId, req.firmId)
-    const scopedBranchId = await resolveScopedBranchId(req.session)
+    const [scopedBranchId, caseRecord] = await Promise.all([
+      resolveScopedBranchId(req.session),
+      assertInvoiceCaseOwnership(body.caseId, body.clientId, req.firmId),
+    ])
     if (scopedBranchId) {
-      const branchCase = await req.db.case.findUnique({
-        where: { id: body.caseId, branchId: scopedBranchId },
-        select: { id: true },
-      })
-      if (!branchCase) {
+      if (caseRecord.branchId !== scopedBranchId) {
         throw Errors.FORBIDDEN('You can only create invoices for cases in your assigned branch')
       }
     }
 
-    const taxAmount = body.taxRate ? body.amount * body.taxRate : 0
-    const totalAmount = body.amount + taxAmount
+    await assertNoExistingInvoice(body.caseId, req.firmId)
+    const { taxAmount, totalAmount } = calculateInvoiceTotals(body.amount, body.taxRate)
 
-    const lastInvoice = await req.db.invoice.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { invoiceNumber: true },
-    })
-    const nextNum = lastInvoice
-      ? String(parseInt(lastInvoice.invoiceNumber.replace(/\D/g, ''), 10) + 1).padStart(4, '0')
-      : '0001'
-    const invoiceNumber = `INV-${nextNum}`
+    let invoice = null
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const invoiceNumber = await generateInvoiceNumber(req.firmId)
+        invoice = await req.db.invoice.create({
+          data: {
+            caseId: body.caseId,
+            clientId: body.clientId,
+            invoiceNumber,
+            amount: body.amount,
+            currency: body.currency,
+            ...(body.taxRate !== undefined ? { taxRate: body.taxRate } : {}),
+            taxAmount,
+            totalAmount,
+            ...(body.dueDate !== undefined ? { dueDate: body.dueDate } : {}),
+            ...(body.notes !== undefined ? { notes: body.notes } : {}),
+            createdById: req.session.userId,
+          },
+          select: {
+            id: true, invoiceNumber: true, status: true,
+            totalAmount: true, createdAt: true,
+            caseId: true,
+            clientId: true,
+            amount: true,
+            currency: true,
+            dueDate: true,
+          },
+        })
+        break
+      } catch (error: any) {
+        if (error?.code !== 'P2002' || attempt === 2) {
+          throw error
+        }
+      }
+    }
 
-    const invoice = await req.db.invoice.create({
-      data: {
-        caseId: body.caseId,
-        clientId: body.clientId,
-        invoiceNumber,
-        amount: body.amount,
-        currency: body.currency,
-        ...(body.taxRate !== undefined ? { taxRate: body.taxRate } : {}),
-        taxAmount,
-        totalAmount,
-        ...(body.dueDate !== undefined ? { dueDate: body.dueDate } : {}),
-        ...(body.notes !== undefined ? { notes: body.notes } : {}),
-        createdById: req.session.userId,
-      },
-      select: {
-        id: true, invoiceNumber: true, status: true,
-        totalAmount: true, createdAt: true,
+    if (!invoice) {
+      throw Errors.INTERNAL()
+    }
+
+    await createInvoiceAuditEntry(req, {
+      action: 'INVOICE_CREATED',
+      entityId: invoice.id,
+      after: {
+        status: invoice.status,
+        caseId: invoice.caseId,
+        clientId: invoice.clientId,
+        invoiceNumber: invoice.invoiceNumber,
+        totalAmount: invoice.totalAmount.toString(),
       },
     })
+
     return created(invoice)
   } catch (err) {
     return errorResponse(err)

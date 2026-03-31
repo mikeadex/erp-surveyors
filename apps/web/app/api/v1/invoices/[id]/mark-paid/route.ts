@@ -4,6 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { createInvoiceAuditEntry } from '@/lib/invoices/invoice-workflow'
 
 export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
@@ -32,7 +33,22 @@ export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
       })
     }
 
-    return ok({ message: 'Invoice marked as paid' })
+    await createInvoiceAuditEntry(req, {
+      action: 'INVOICE_MARKED_PAID',
+      entityId: invoice.id,
+      before: {
+        status: invoice.status,
+        paidAt: invoice.paidAt?.toISOString() ?? null,
+        caseStage: invoice.case.stage,
+      },
+      after: {
+        status: 'paid',
+        paidAt: new Date().toISOString(),
+        caseStage: invoice.case.stage === 'invoice_sent' ? 'payment_received' : invoice.case.stage,
+      },
+    })
+
+    return ok({ message: 'Invoice marked as paid', status: 'paid' })
   } catch (err) {
     return errorResponse(err)
   }

@@ -4,6 +4,7 @@ import { ok, errorResponse } from '@/lib/api/response'
 import { Errors } from '@/lib/api/errors'
 import { requireRole } from '@/lib/auth/guards'
 import { resolveScopedBranchId } from '@/lib/auth/branch-scope'
+import { createInvoiceAuditEntry } from '@/lib/invoices/invoice-workflow'
 
 export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
   try {
@@ -31,7 +32,20 @@ export const POST = withAuth(withTenant(async (req: TenantRequest, ctx) => {
       })
     }
 
-    return ok({ message: 'Invoice issued' })
+    await createInvoiceAuditEntry(req, {
+      action: 'INVOICE_ISSUED',
+      entityId: invoice.id,
+      before: {
+        status: invoice.status,
+        caseStage: invoice.case.stage,
+      },
+      after: {
+        status: 'sent',
+        caseStage: invoice.case.stage === 'final_issued' ? 'invoice_sent' : invoice.case.stage,
+      },
+    })
+
+    return ok({ message: 'Invoice issued', status: 'sent' })
   } catch (err) {
     return errorResponse(err)
   }

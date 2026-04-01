@@ -50,7 +50,40 @@ function buildCards(role: UserRole, summary: Record<string, any>, stageMap: Reco
     ]
   }
 
-  if (role === 'valuer' || role === 'field_officer') {
+  if (role === 'field_officer') {
+    return [
+      {
+        label: 'Assigned To Me',
+        value: summary.assignedToMe ?? 0,
+        icon: FolderOpen,
+        tone: 'text-brand-700',
+        footnote: 'Live inspection files currently sitting in your field queue.',
+      },
+      {
+        label: 'Inspections Due',
+        value: summary.inspectionsDue ?? 0,
+        icon: Clock,
+        tone: 'text-slate-900',
+        footnote: 'Cases that still need site attendance or field follow-through.',
+      },
+      {
+        label: 'Inspection Completed',
+        value: stageMap.inspection_completed ?? 0,
+        icon: CheckCircle,
+        tone: 'text-slate-900',
+        footnote: 'Records you have already pushed past the site-visit stage.',
+      },
+      {
+        label: 'Overdue Assigned',
+        value: summary.overdueAssigned ?? 0,
+        icon: AlertTriangle,
+        tone: 'text-slate-900',
+        footnote: 'Field tasks that need attention to protect turnaround.',
+      },
+    ]
+  }
+
+  if (role === 'valuer') {
     return [
       {
         label: 'Assigned To Me',
@@ -125,13 +158,13 @@ export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsP
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">
-                  Income Snapshot
+                  Collected Revenue
                 </p>
                 <p className="mt-3 text-4xl font-semibold tracking-tight">
-                  {formatCurrency(summary.paidThisMonth ?? 0)}
+                  {formatCurrency(summary.paidThisYear ?? 0)}
                 </p>
                 <p className="mt-2 max-w-lg text-sm leading-6 text-white/80">
-                  Cash collected this month across issued invoices and completed receipts.
+                  Year-to-date collections recorded across paid invoices, so finance can see realised revenue even in slower current months.
                 </p>
               </div>
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white/15 text-white">
@@ -141,9 +174,9 @@ export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsP
 
             <div className="mt-6 grid grid-cols-2 gap-3">
               <div className="rounded-[22px] bg-white/10 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/70">YTD Income</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/70">This Month</p>
                 <p className="mt-2 text-xl font-semibold text-white">
-                  {formatCurrency(summary.paidThisYear ?? 0)}
+                  {formatCurrency(summary.paidThisMonth ?? 0)}
                 </p>
               </div>
               <div className="rounded-[22px] bg-white/10 px-4 py-3">
@@ -201,12 +234,13 @@ export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsP
                 {formatCurrency(summary.unpaidInvoices ?? 0)}
               </p>
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                Outstanding billed value currently in the receivables queue, with projected month-end recovery shown above.
+                Outstanding billed value currently in the receivables queue, with realised revenue and projected recovery separated more clearly above.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { label: 'Income', value: formatCurrency(summary.paidThisMonth ?? 0) },
+                { label: 'YTD', value: formatCurrency(summary.paidThisYear ?? 0) },
+                { label: 'Month', value: formatCurrency(summary.paidThisMonth ?? 0) },
                 { label: 'Pending', value: formatCurrency(summary.unpaidInvoices ?? 0) },
                 { label: 'Projection', value: formatCurrency(summary.projectedReceipts ?? 0) },
                 { label: 'Open', value: summary.outstandingCount ?? 0 },
@@ -226,7 +260,9 @@ export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsP
   const cards = buildCards(role, summary, stageMap)
 
   const bottomTitle =
-    role === 'valuer' || role === 'field_officer'
+    role === 'field_officer'
+      ? 'Field Delivery Mix'
+      : role === 'valuer'
       ? 'My Delivery Mix'
       : 'Operations Snapshot'
 
@@ -236,7 +272,9 @@ export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsP
       : summary.openCases ?? 0
 
   const bottomCopy =
-    role === 'valuer' || role === 'field_officer'
+    role === 'field_officer'
+      ? 'Open site assignments currently owned by you across scheduled and completed inspection work.'
+      : role === 'valuer'
       ? 'Open instructions currently owned by you across inspection, analysis, and reporting.'
       : 'Active work currently visible across branches, review, and delivery.'
 
@@ -278,13 +316,20 @@ export function DashboardSummaryCards({ role, summary, stageMap }: SummaryCardsP
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{bottomCopy}</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {(role === 'valuer' || role === 'field_officer'
+            {(role === 'field_officer'
                 ? [
-                    { label: 'Inspection', value: stageMap.inspection_scheduled ?? 0 },
-                    { label: 'Analysis', value: stageMap.comparable_analysis ?? 0 },
-                    { label: 'Draft', value: stageMap.draft_report ?? 0 },
-                    { label: 'Review', value: stageMap.review ?? 0 },
+                    { label: 'Scheduled', value: stageMap.inspection_scheduled ?? 0 },
+                    { label: 'Completed', value: stageMap.inspection_completed ?? 0 },
+                    { label: 'Overdue', value: summary.overdueAssigned ?? 0 },
+                    { label: 'Assigned', value: summary.assignedToMe ?? 0 },
                   ]
+                : role === 'valuer'
+                  ? [
+                      { label: 'Inspection', value: stageMap.inspection_scheduled ?? 0 },
+                      { label: 'Analysis', value: stageMap.comparable_analysis ?? 0 },
+                      { label: 'Draft', value: stageMap.draft_report ?? 0 },
+                      { label: 'Review', value: stageMap.review ?? 0 },
+                    ]
                 : [
                     { label: 'Open', value: summary.openCases ?? 0 },
                     { label: 'Review', value: stageMap.review ?? 0 },

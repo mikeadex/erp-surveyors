@@ -172,6 +172,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   ])
 
   const canManage = ['managing_partner', 'admin'].includes(session.role)
+  const canViewCommercials = ['managing_partner', 'admin', 'finance'].includes(session.role)
   const mediaConfigured = hasMediaReadConfig()
 
   return (
@@ -242,14 +243,16 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
                     {caseRecord.dueDate ? formatDate(caseRecord.dueDate) : '—'}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-slate-500">Fee Amount</dt>
-                  <dd className="text-slate-900">
-                    {caseRecord.feeAmount
-                      ? formatCurrency(caseRecord.feeAmount.toString(), caseRecord.feeCurrency)
-                      : '—'}
-                  </dd>
-                </div>
+                {canViewCommercials && (
+                  <div>
+                    <dt className="text-slate-500">Fee Amount</dt>
+                    <dd className="text-slate-900">
+                      {caseRecord.feeAmount
+                        ? formatCurrency(caseRecord.feeAmount.toString(), caseRecord.feeCurrency)
+                        : '—'}
+                    </dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-slate-500">Created</dt>
                   <dd className="text-slate-900">{formatDate(caseRecord.createdAt)}</dd>
@@ -456,7 +459,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             </section>
 
             {/* Invoice */}
-            {caseRecord.invoice && (
+            {canViewCommercials && caseRecord.invoice && (
               <section className="surface-card rounded-[28px] p-5 space-y-3">
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                   <Calendar className="h-4 w-4 text-slate-400" />

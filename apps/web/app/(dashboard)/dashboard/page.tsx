@@ -60,16 +60,24 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                {session.role === 'finance' ? 'Finance Command' : 'Command Centre'}
+                {session.role === 'finance'
+                  ? 'Finance Command'
+                  : session.role === 'field_officer'
+                    ? 'Field Operations'
+                    : 'Command Centre'}
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
                 {session.role === 'finance'
                   ? 'Track collections, pending receipts, and month-end recovery with clarity.'
+                  : session.role === 'field_officer'
+                    ? 'Stay focused on site visits, inspection progress, and overdue field work.'
                   : 'Keep valuations, branch work, and delivery risk in view.'}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 {session.role === 'finance'
-                  ? 'The finance workspace now surfaces income, projection, pending receivables, and overdue pressure more prominently.'
+                  ? 'The finance workspace now separates realised revenue, live receivables, projection, and overdue pressure more clearly.'
+                  : session.role === 'field_officer'
+                    ? 'The field workspace stays operational only, without finance-sensitive revenue visibility.'
                   : 'The workspace now uses a calmer operating shell with a neutral base, a collapsible sidebar, and Nigerian-green accents for the important states.'}
               </p>
             </div>
@@ -87,7 +95,9 @@ export default async function DashboardPage({
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 {session.role === 'finance'
-                  ? 'A bolder view of income, projection, pending collections, and overdue pressure.'
+                  ? 'A bolder view of realised revenue, pending collections, and overdue pressure.'
+                  : session.role === 'field_officer'
+                    ? 'A quick view of site workload, completed inspections, and overdue field pressure.'
                   : 'A quick view of throughput, review load, and overdue pressure.'}
               </p>
             </div>

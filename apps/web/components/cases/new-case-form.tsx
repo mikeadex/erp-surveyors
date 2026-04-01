@@ -50,6 +50,23 @@ function toIsoDateTime(value: unknown) {
   return parsed.toISOString()
 }
 
+function emptyToUndefined(value: unknown) {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
+function optionalNumber(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined
+  }
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 export function NewCaseForm({
   clients,
   properties,
@@ -65,6 +82,7 @@ export function NewCaseForm({
     handleSubmit,
     watch,
     setValue,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<CreateCaseInput>({
     resolver: zodResolver(CreateCaseSchema),
@@ -75,6 +93,17 @@ export function NewCaseForm({
   const selectedBranchId = watch('branchId')
   const selectedClientId = watch('clientId')
   const selectedPropertyId = watch('propertyId')
+  const selectedReviewerId = watch('assignedReviewerId')
+
+  const valuerOptions = useMemo(
+    () => valuers.filter((user) => ['valuer', 'reviewer', 'managing_partner', 'field_officer'].includes(user.role ?? '')),
+    [valuers],
+  )
+
+  const reviewerOptions = useMemo(
+    () => valuers.filter((user) => ['reviewer', 'managing_partner'].includes(user.role ?? '')),
+    [valuers],
+  )
 
   const filteredProperties = useMemo(
     () => properties.filter((property) => property.clientId === selectedClientId),
@@ -84,15 +113,30 @@ export function NewCaseForm({
   useEffect(() => {
     if (!selectedClientId) {
       if (selectedPropertyId) {
-        setValue('propertyId', '', { shouldDirty: true, shouldValidate: true })
+        setValue('propertyId', '', { shouldDirty: true })
       }
+      clearErrors('propertyId')
       return
     }
 
     if (!filteredProperties.some((property) => property.id === selectedPropertyId)) {
-      setValue('propertyId', '', { shouldDirty: true, shouldValidate: true })
+      setValue('propertyId', '', { shouldDirty: true })
+      clearErrors('propertyId')
+      return
     }
-  }, [filteredProperties, selectedClientId, selectedPropertyId, setValue])
+
+    if (selectedPropertyId) {
+      clearErrors('propertyId')
+    }
+  }, [clearErrors, filteredProperties, selectedClientId, selectedPropertyId, setValue])
+
+  useEffect(() => {
+    if (!selectedReviewerId) return
+    if (!reviewerOptions.some((reviewer) => reviewer.id === selectedReviewerId)) {
+      setValue('assignedReviewerId', undefined, { shouldDirty: true })
+      clearErrors('assignedReviewerId')
+    }
+  }, [clearErrors, reviewerOptions, selectedReviewerId, setValue])
 
   async function onSubmit(data: CreateCaseInput) {
     setErrorMsg(null)
@@ -229,7 +273,7 @@ export function NewCaseForm({
               className={inputClassName}
             >
               <option value="">Select valuer…</option>
-              {valuers.map((v) => (
+              {valuerOptions.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.firstName} {v.lastName} ({v.role})
                 </option>
@@ -245,11 +289,13 @@ export function NewCaseForm({
               Assigned Reviewer
             </label>
             <select
-              {...register('assignedReviewerId')}
+              {...register('assignedReviewerId', {
+                setValueAs: emptyToUndefined,
+              })}
               className={inputClassName}
             >
               <option value="">None</option>
-              {valuers.map((v) => (
+              {reviewerOptions.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.firstName} {v.lastName} ({v.role})
                 </option>
@@ -263,7 +309,9 @@ export function NewCaseForm({
                 Branch {branches.length === 1 && <span className="text-red-500">*</span>}
               </label>
               <select
-                {...register('branchId')}
+                {...register('branchId', {
+                  setValueAs: emptyToUndefined,
+                })}
                 className={inputClassName}
               >
                 {branches.length > 1 && <option value="">No branch</option>}
@@ -309,7 +357,9 @@ export function NewCaseForm({
           <div>
             <label className={labelClassName}>Fee Amount (₦)</label>
             <input
-              {...register('feeAmount', { valueAsNumber: true })}
+              {...register('feeAmount', {
+                setValueAs: optionalNumber,
+              })}
               type="number"
               min={0}
               step={0.01}

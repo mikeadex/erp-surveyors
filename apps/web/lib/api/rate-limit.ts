@@ -43,6 +43,27 @@ function getRateLimitRedis() {
   return globalThis.__voRateLimitRedis
 }
 
+function isRedisConnectivityError(error: unknown) {
+  if (!(error instanceof Error)) return false
+
+  const message = error.message.toLowerCase()
+  const cause = 'cause' in error ? (error as Error & { cause?: unknown }).cause : undefined
+  const causeCode =
+    cause && typeof cause === 'object' && 'code' in cause
+      ? String((cause as { code?: unknown }).code ?? '')
+      : ''
+
+  return (
+    message.includes('fetch failed')
+    || message.includes('enotfound')
+    || message.includes('econnrefused')
+    || message.includes('etimedout')
+    || causeCode === 'ENOTFOUND'
+    || causeCode === 'ECONNREFUSED'
+    || causeCode === 'ETIMEDOUT'
+  )
+}
+
 export function getRequestIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
   const realIp = req.headers.get('x-real-ip')?.trim()
@@ -97,17 +118,30 @@ export async function assertRateLimit(req: NextRequest, options: RateLimitOption
     return
   }
 
-  const count = await redis.incr(compoundKey)
-  if (count === 1) {
-    await redis.expire(compoundKey, Math.max(1, Math.ceil(options.windowMs / 1000)))
-    return
-  }
+  try {
+    const count = await redis.incr(compoundKey)
+    if (count === 1) {
+      await redis.expire(compoundKey, Math.max(1, Math.ceil(options.windowMs / 1000)))
+      return
+    }
 
-  if (count > options.limit) {
-    const retryAfterSeconds = await redis.ttl(compoundKey).catch(() => null)
-    throw Errors.TOO_MANY_REQUESTS(
-      'Too many requests for this action. Please wait a moment and try again.',
-      typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0 ? retryAfterSeconds : undefined,
-    )
+    if (count > options.limit) {
+      const retryAfterSeconds = await redis.ttl(compoundKey).catch(() => null)
+      throw Errors.TOO_MANY_REQUESTS(
+        'Too many requests for this action. Please wait a moment and try again.',
+        typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0 ? retryAfterSeconds : undefined,
+      )
+    }
+  } catch (error) {
+    if (!isRedisConnectivityError(error)) {
+      throw error
+    }
+
+    console.warn('[rate-limit] Redis unavailable, falling back to memory store', {
+      namespace: options.namespace,
+      reason: error instanceof Error ? error.message : 'unknown error',
+    })
+    globalThis.__voRateLimitRedis = null
+    await assertMemoryRateLimit(options)
   }
 }
